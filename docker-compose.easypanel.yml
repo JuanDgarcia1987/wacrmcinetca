@@ -25,7 +25,8 @@ services:
         HOSTNAME: 0.0.0.0
       expose:
         - "3000"
-      network_mode: bridge
+      networks:
+        - easypanel
       restart: unless-stopped
       healthcheck:
         test:
@@ -39,3 +40,8 @@ services:
         timeout: 5s
         retries: 3
         start_period: 20s
+
+  networks:
+    easypanel:
+      external: true
+      name: easypanel
