@@ -1,6 +1,4 @@
-name: wacrm
-
-  services:
+services:
     app:
       build:
         context: .
@@ -27,8 +25,7 @@ name: wacrm
         HOSTNAME: 0.0.0.0
       expose:
         - "3000"
-      networks:
-        - default
+      network_mode: bridge
       restart: unless-stopped
       healthcheck:
         test:
@@ -42,7 +39,3 @@ name: wacrm
         timeout: 5s
         retries: 3
         start_period: 20s
-
-  networks:
-    default:
-      driver: bridge
