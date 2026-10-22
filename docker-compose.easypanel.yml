@@ -57,7 +57,14 @@ services:
     # No 'ports:' mapping needed — EasyPanel handles ingress.
     expose:
       - "3000"
+    # Use default bridge network to avoid "Pool overlaps" subnet conflicts
+    networks:
+      - default
     restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
     healthcheck:
       test:
         [
