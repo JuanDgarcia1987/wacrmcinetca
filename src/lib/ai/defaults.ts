@@ -13,7 +13,9 @@ import type { AiProvider } from './types'
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4-mini',
   anthropic: 'claude-haiku-4-5-20251001',
-  openai_compatible: 'model-id',
+  // OpenRouter is the most common OpenAI-compatible backend; its model
+  // IDs are `<provider>/<model>` (e.g. `openai/gpt-4o`, `google/gemini-2.0-flash-001`).
+  openai_compatible: 'openai/gpt-4o-mini',
 }
 
 /**
