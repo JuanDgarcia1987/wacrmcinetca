@@ -2171,6 +2171,8 @@
       "baseUrl": "URL base",
       "baseUrlHint": "URL base de la API compatible con OpenAI, por ejemplo https://openrouter.ai/api/v1. /chat/completions se añade automáticamente, salvo que incluyas esa ruta.",
       "openRouterHint": "Para usar OpenRouter: pon la URL base a https://openrouter.ai/api/v1, introduce tu clave sk-or-… y elige cualquier ID de modelo de OpenRouter (p. ej. openai/gpt-4o, anthropic/claude-3.5-sonnet).",
+      "openRouterFixedUrl": "Endpoint fijo: https://openrouter.ai/api/v1. /chat/completions se añade automáticamente.",
+      "openRouterBaseUrlInvalid": "OpenRouter usa un endpoint fijo: {expected}.",
       "missingBaseUrl": "Introduce la URL base de la API compatible con OpenAI."
     },
     "aiKnowledge": {

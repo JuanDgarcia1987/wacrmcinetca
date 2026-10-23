@@ -2171,6 +2171,8 @@
       "baseUrl": "기본 URL",
       "baseUrlHint": "OpenAI 호환 API의 기본 URL입니다. 예: https://openrouter.ai/api/v1. /chat/completions 경로는 직접 입력하지 않는 경우 자동으로 추가됩니다.",
       "openRouterHint": "OpenRouter를 사용하려면 기본 URL을 https://openrouter.ai/api/v1로 설정하고, sk-or-… 키를 입력한 뒤 OpenRouter의 어떤 모델 ID든 선택하세요(예: openai/gpt-4o, anthropic/claude-3.5-sonnet).",
+      "openRouterFixedUrl": "고정 엔드포인트: https://openrouter.ai/api/v1. /chat/completions 경로는 자동으로 추가됩니다.",
+      "openRouterBaseUrlInvalid": "OpenRouter는 고정 엔드포인트를 사용합니다: {expected}.",
       "missingBaseUrl": "OpenAI 호환 API의 기본 URL을 입력하세요."
     },
     "aiKnowledge": {
