@@ -325,7 +325,7 @@ export function AiConfig() {
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">{t('baseUrlHint')}</p>
-                  <p className="text-xs text-muted-foreground">{t('openRouterHint')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('openRouterHint')}</p>
                 </div>
               )}
             </div>
