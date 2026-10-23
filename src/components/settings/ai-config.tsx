@@ -15,8 +15,6 @@ import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import {
   Card,
   CardContent,
@@ -24,43 +22,11 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { SettingsPanelHead } from './settings-panel-head';
-import { AiKnowledgeCard } from './ai-knowledge';
-import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
-import type { AiProvider } from '@/lib/ai/types';
-import type { AccountMember } from '@/types';
-import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useTranslations } from 'next-intl';
 import { invalidateAiAccountStatus } from '@/lib/ai/account-status-cache';
 
 const MASKED_KEY = '••••••••••••••••';
-
-// Radix Select can't use an empty-string item value, so the "leave
-// unassigned" choice gets a sentinel that maps to null in the payload.
-const HANDOFF_QUEUE = '__queue__';
-
-const PROVIDER_LABEL: Record<
-  Exclude<AiProvider, 'openai_compatible'>,
-  string
-> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic (Claude)',
-  openrouter: 'OpenRouter',
-};
-
-const KEY_PLACEHOLDER: Record<AiProvider, string> = {
-  openai: 'sk-...',
-  anthropic: 'sk-ant-...',
-  openai_compatible: 'your-api-key',
-  openrouter: 'sk-or-...',
-};
 
 export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
@@ -73,23 +39,11 @@ export function AiConfig() {
   const [removing, setRemoving] = useState(false);
 
   const [configured, setConfigured] = useState(false);
-  const [provider, setProvider] = useState<AiProvider>('openai');
-  const [model, setModel] = useState(AI_PROVIDER_DEFAULT_MODEL.openai);
-  const [baseUrl, setBaseUrl] = useState('');
+  const [model, setModel] = useState('openai/gpt-4o-mini');
   const [apiKey, setApiKey] = useState('');
   const [keyEdited, setKeyEdited] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [hasStoredKey, setHasStoredKey] = useState(false);
-  const [embeddingsKey, setEmbeddingsKey] = useState('');
-  const [embeddingsKeyEdited, setEmbeddingsKeyEdited] = useState(false);
-  const [hasStoredEmbeddingsKey, setHasStoredEmbeddingsKey] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [isActive, setIsActive] = useState(false);
-  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
-  const [maxPerConversation, setMaxPerConversation] = useState(3);
-  // Empty string = leave unassigned (shared queue).
-  const [handoffAgentId, setHandoffAgentId] = useState('');
-  const [members, setMembers] = useState<AccountMember[]>([]);
 
   // Guard keyed on the account (not a bare boolean) so an in-place
   // account switch — ownership transfer, multi-account membership —
@@ -108,20 +62,10 @@ export function AiConfig() {
       }
       if (data.configured) {
         setConfigured(true);
-        setProvider(data.provider);
         setModel(data.model);
-        setBaseUrl(data.base_url ?? '');
-        setSystemPrompt(data.system_prompt ?? '');
-        setIsActive(data.is_active);
-        setAutoReplyEnabled(data.auto_reply_enabled);
-        setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
-        setHandoffAgentId(data.handoff_agent_id ?? '');
         setHasStoredKey(Boolean(data.has_key));
         setApiKey(data.has_key ? MASKED_KEY : '');
         setKeyEdited(false);
-        setHasStoredEmbeddingsKey(Boolean(data.has_embeddings_key));
-        setEmbeddingsKey(data.has_embeddings_key ? MASKED_KEY : '');
-        setEmbeddingsKeyEdited(false);
       }
     } catch {
       toast.error(t('loadFailed'));
@@ -134,50 +78,15 @@ export function AiConfig() {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
     loadedAccountIdRef.current = accountId;
     void fetchConfig();
-    // Members populate the handoff-target picker. Best-effort — on an
-    // older deployment without the endpoint the picker just shows the
-    // queue option.
-    void fetchAccountMembers().then(setMembers);
   }, [accountId, fetchConfig]);
-
-  // Swap the model default when the provider changes, unless the user
-  // typed a custom model.
-  const handleProviderChange = (next: AiProvider) => {
-    setProvider(next);
-    const isDefaultModel =
-      model === AI_PROVIDER_DEFAULT_MODEL.openai ||
-      model === AI_PROVIDER_DEFAULT_MODEL.anthropic ||
-      model === AI_PROVIDER_DEFAULT_MODEL.openai_compatible ||
-      model === AI_PROVIDER_DEFAULT_MODEL.openrouter ||
-      model.trim() === '';
-    if (isDefaultModel)
-      setModel(
-        next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]
-      );
-  };
 
   const keyPayload = () => (keyEdited ? apiKey.trim() : undefined);
 
-  // undefined = leave unchanged; '' typed = null (clear); text = set.
-  const embeddingsKeyPayload = () =>
-    embeddingsKeyEdited ? embeddingsKey.trim() || null : undefined;
-
   const buildBody = () => ({
-    provider,
+    provider: 'openrouter',
     model: model.trim(),
-    base_url:
-      provider === 'openai_compatible'
-        ? baseUrl.trim()
-        : provider === 'openrouter'
-          ? 'https://openrouter.ai/api/v1'
-          : null,
+    base_url: 'https://openrouter.ai/api/v1',
     api_key: keyPayload(),
-    embeddings_api_key: embeddingsKeyPayload(),
-    system_prompt: systemPrompt.trim() || null,
-    is_active: isActive,
-    auto_reply_enabled: autoReplyEnabled,
-    auto_reply_max_per_conversation: maxPerConversation,
-    handoff_agent_id: handoffAgentId || null,
   });
 
   const handleTest = async () => {
@@ -187,14 +96,9 @@ export function AiConfig() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider,
+          provider: 'openrouter',
           model: model.trim(),
-          base_url:
-            provider === 'openai_compatible'
-              ? baseUrl.trim()
-              : provider === 'openrouter'
-                ? 'https://openrouter.ai/api/v1'
-                : null,
+          base_url: 'https://openrouter.ai/api/v1',
           api_key: keyPayload(),
         }),
       });
@@ -211,10 +115,6 @@ export function AiConfig() {
   const handleSave = async () => {
     if (!model.trim()) {
       toast.error(t('missingModel'));
-      return;
-    }
-    if (provider === 'openai_compatible' && !baseUrl.trim()) {
-      toast.error(t('missingBaseUrl'));
       return;
     }
     if (!configured && !keyEdited) {
@@ -251,14 +151,9 @@ export function AiConfig() {
         invalidateAiAccountStatus();
         toast.success(t('removeSuccess'));
         setConfigured(false);
-        setBaseUrl('');
         setHasStoredKey(false);
         setApiKey('');
         setKeyEdited(false);
-        setIsActive(false);
-        setAutoReplyEnabled(false);
-        setSystemPrompt('');
-        setHandoffAgentId('');
       } else {
         const data = await res.json();
         toast.error(data.error ?? t('removeFailed'));
@@ -273,9 +168,7 @@ export function AiConfig() {
   if (loading || profileLoading) {
     return (
       <div className="text-muted-foreground flex items-center justify-center py-16">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loadFailed')}{' '}
-        {/* Re-using label or a global one, wait, loading is better. Let's use useTranslations from overview or just hardcode Loading... actually I should add loading to aiConfig */}
-        {/* Wait, I didn't add loading to aiConfig. I'll just use loading. */}
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loading')}
       </div>
     );
   }
@@ -304,276 +197,71 @@ export function AiConfig() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t('provider')}</Label>
-                <Select
-                  value={provider}
-                  onValueChange={(v) => handleProviderChange(v as AiProvider)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">
-                      {PROVIDER_LABEL.openai}
-                    </SelectItem>
-                    <SelectItem value="anthropic">
-                      {PROVIDER_LABEL.anthropic}
-                    </SelectItem>
-                    <SelectItem value="openai_compatible">
-                      {t('providerOpenAiCompatible')}
-                    </SelectItem>
-                    <SelectItem value="openrouter">
-                      {PROVIDER_LABEL.openrouter}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="ai-model">{t('model')}</Label>
                 <Input
                   id="ai-model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
+                  placeholder="openai/gpt-4o-mini"
                   disabled={disabled}
                 />
+                <p className="text-muted-foreground text-xs">
+                  {t('openRouterHint')}
+                </p>
               </div>
 
-              {provider === 'openai_compatible' && (
-                <div className="space-y-2">
-                  <Label htmlFor="ai-base-url">{t('baseUrl')}</Label>
-                  <Input
-                    id="ai-base-url"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.example.com/v1"
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    {t('baseUrlHint')}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {t('openRouterHint')}
-                  </p>
-                </div>
-              )}
-              {provider === 'openrouter' && (
-                <div className="space-y-2">
-                  <Label htmlFor="ai-base-url">{t('baseUrl')}</Label>
-                  <Input
-                    id="ai-base-url"
-                    value={baseUrl || 'https://openrouter.ai/api/v1'}
-                    disabled
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    {t('openRouterFixedUrl')}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {t('openRouterHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ai-key">{t('apiKey')}</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="ai-key"
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      setKeyEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (!keyEdited && hasStoredKey) {
-                        setApiKey('');
+              <div className="space-y-2">
+                <Label htmlFor="ai-key">{t('apiKey')}</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="ai-key"
+                      type={showKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
                         setKeyEdited(true);
-                      }
-                    }}
-                    placeholder={KEY_PLACEHOLDER[provider]}
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((s) => !s)}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                    tabIndex={-1}
+                      }}
+                      onFocus={() => {
+                        if (!keyEdited && hasStoredKey) {
+                          setApiKey('');
+                          setKeyEdited(true);
+                        }
+                      }}
+                      placeholder="sk-or-..."
+                      disabled={disabled}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((s) => !s)}
+                      className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                      tabIndex={-1}
+                    >
+                      {showKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleTest}
+                    disabled={disabled || testing}
                   >
-                    {showKey ? (
-                      <EyeOff className="h-4 w-4" />
+                    {testing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
                     )}
-                  </button>
+                    {t('testKey')}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={handleTest}
-                  disabled={disabled || testing}
-                >
-                  {testing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                  )}
-                  {t('testKey')}
-                </Button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ai-embeddings-key">
-                {t('embeddingsKey')}{' '}
-                <span className="text-muted-foreground font-normal">
-                  {t('optionalSemanticSearch')}
-                </span>
-              </Label>
-              <Input
-                id="ai-embeddings-key"
-                type="password"
-                value={embeddingsKey}
-                onChange={(e) => {
-                  setEmbeddingsKey(e.target.value);
-                  setEmbeddingsKeyEdited(true);
-                }}
-                onFocus={() => {
-                  if (!embeddingsKeyEdited && hasStoredEmbeddingsKey) {
-                    setEmbeddingsKey('');
-                    setEmbeddingsKeyEdited(true);
-                  }
-                }}
-                placeholder="sk-... (OpenAI)"
-                disabled={disabled}
-                autoComplete="off"
-              />
-              <p className="text-muted-foreground text-xs">
-                {t('embeddingsHint', {
-                  sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
-                })}
-              </p>
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('behaviour')}</CardTitle>
-            <CardDescription>{t('behaviourDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
-              <Textarea
-                id="ai-prompt"
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder={t('promptPlaceholder')}
-                rows={5}
-                disabled={disabled}
-              />
-            </div>
-
-            <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-              <div>
-                <p className="text-foreground text-sm font-medium">
-                  {t('enableAssistant')}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {t('enableAssistantDesc')}
-                </p>
-              </div>
-              <Switch
-                checked={isActive}
-                onCheckedChange={setIsActive}
-                disabled={disabled}
-              />
-            </div>
-
-            <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-              <div>
-                <p className="text-foreground text-sm font-medium">
-                  {t('autoReply')}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {t('autoReplyDesc')}
-                </p>
-              </div>
-              <Switch
-                checked={autoReplyEnabled}
-                onCheckedChange={setAutoReplyEnabled}
-                disabled={disabled || !isActive}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
-                <p className="text-muted-foreground text-xs">
-                  {t('maxAutoRepliesDesc')}
-                </p>
-              </div>
-              <Input
-                id="ai-max"
-                type="number"
-                min={1}
-                max={20}
-                value={maxPerConversation}
-                onChange={(e) =>
-                  setMaxPerConversation(
-                    Math.min(20, Math.max(1, Number(e.target.value) || 1))
-                  )
-                }
-                disabled={disabled || !autoReplyEnabled}
-                className="w-20"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ai-handoff">{t('handoffTo')}</Label>
-              <p className="text-muted-foreground text-xs">
-                {t('handoffToDesc')}
-              </p>
-              <Select
-                value={handoffAgentId || HANDOFF_QUEUE}
-                onValueChange={(v) =>
-                  setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
-                }
-                disabled={disabled || !autoReplyEnabled}
-              >
-                <SelectTrigger id="ai-handoff">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={HANDOFF_QUEUE}>
-                    {t('handoffQueue')}
-                  </SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {memberLabel(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        <AiKnowledgeCard
-          accountId={accountId}
-          canEdit={canEdit}
-          hasEmbeddingsKey={
-            embeddingsKeyEdited
-              ? embeddingsKey.trim().length > 0
-              : hasStoredEmbeddingsKey
-          }
-        />
 
         <div className="flex items-center justify-between">
           {configured ? (
