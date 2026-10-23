@@ -4,18 +4,19 @@ import {
   type AiUsage,
   type ChatMessage,
   type GenerateResult,
-} from './types'
-import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
-import { generateOpenAi } from './providers/openai'
-import { generateOpenAiCompatible } from './providers/openai-compatible'
-import { generateAnthropic } from './providers/anthropic'
+} from './types';
+import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults';
+import { generateOpenAi } from './providers/openai';
+import { generateOpenAiCompatible } from './providers/openai-compatible';
+import { generateOpenRouter } from './providers/openrouter';
+import { generateAnthropic } from './providers/anthropic';
 
 export interface GenerateArgs {
-  config: AiConfig
+  config: AiConfig;
   /** Fully-built system prompt (see `buildSystemPrompt`). */
-  systemPrompt: string
+  systemPrompt: string;
   /** Recent conversation turns, oldest first. */
-  messages: ChatMessage[]
+  messages: ChatMessage[];
 }
 
 /**
@@ -23,9 +24,11 @@ export interface GenerateArgs {
  * Dispatches to the right adapter, then parses the handoff sentinel out
  * of the raw text. Throws `AiError` on any provider/network failure.
  */
-export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
-  const { config, systemPrompt, messages } = args
-  const timeoutMs = aiRequestTimeoutMs()
+export async function generateReply(
+  args: GenerateArgs
+): Promise<GenerateResult> {
+  const { config, systemPrompt, messages } = args;
+  const timeoutMs = aiRequestTimeoutMs();
   const providerArgs = {
     apiKey: config.apiKey,
     model: config.model,
@@ -33,27 +36,30 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
     messages,
     timeoutMs,
     baseUrl: config.baseUrl,
-  }
+  };
 
-  let result: { text: string; usage: AiUsage | null }
+  let result: { text: string; usage: AiUsage | null };
   switch (config.provider) {
     case 'openai':
-      result = await generateOpenAi(providerArgs)
-      break
+      result = await generateOpenAi(providerArgs);
+      break;
     case 'openai_compatible':
-      result = await generateOpenAiCompatible(providerArgs)
-      break
+      result = await generateOpenAiCompatible(providerArgs);
+      break;
+    case 'openrouter':
+      result = await generateOpenRouter(providerArgs);
+      break;
     case 'anthropic':
-      result = await generateAnthropic(providerArgs)
-      break
+      result = await generateAnthropic(providerArgs);
+      break;
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {
         code: 'unsupported_provider',
         status: 400,
-      })
+      });
   }
 
-  return parseGeneration(result.text, result.usage)
+  return parseGeneration(result.text, result.usage);
 }
 
 /**
@@ -65,9 +71,9 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
  */
 export function parseGeneration(
   raw: string,
-  usage: AiUsage | null = null,
+  usage: AiUsage | null = null
 ): GenerateResult {
-  const handoff = raw.includes(HANDOFF_SENTINEL)
-  const text = raw.split(HANDOFF_SENTINEL).join('').trim()
-  return { text, handoff, usage }
+  const handoff = raw.includes(HANDOFF_SENTINEL);
+  const text = raw.split(HANDOFF_SENTINEL).join('').trim();
+  return { text, handoff, usage };
 }
