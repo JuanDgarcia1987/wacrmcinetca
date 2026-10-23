@@ -2129,6 +2129,7 @@
       "loadFailed": "Couldn't load the reply time target"
     },
     "aiConfig": {
+      "title": "Agent setup",
       "description": "Bring your own OpenRouter API key. wacrm calls OpenRouter directly with your key — no per-seat AI fees, and your data stays yours. This powers AI-drafted replies in the inbox, the auto-reply bot, and the Playground.",
       "adminOnlyConfig": "Only admins and owners can change the AI configuration.",
       "loadFailed": "Failed to load AI configuration",
@@ -2140,7 +2141,23 @@
       "testSuccess": "Key works — the provider responded.",
       "testRejected": "The provider rejected the request.",
       "testNetworkError": "Could not reach the provider.",
-      "openRouterHint": "Enter any OpenRouter model ID, for example openai/gpt-4o-mini or openai/deepseek/deepseek-r1. Your key is an sk-or-… key from openrouter.ai.",
+      "embeddingsKey": "Embeddings key",
+      "optionalSemanticSearch": "(optional — enables semantic knowledge-base search)",
+      "embeddingsHint": "An OpenAI key used only to embed your knowledge base (text-embedding-3-small){sameKeyText}. Leave blank to use keyword search instead. Clear it to turn semantic search off.",
+      "sameKeyText": " — can be the same key as above",
+      "behaviour": "Behaviour",
+      "behaviourDesc": "Tell the assistant about your business — products, tone, what it may and may not promise. This context feeds both drafts and auto-replies.",
+      "businessContext": "Business context & instructions",
+      "promptPlaceholder": "e.g. We are Acme, a coffee-equipment store. Be warm and concise. Never quote prices or delivery dates — hand off to a human for those.",
+      "enableAssistant": "Enable AI assistant",
+      "enableAssistantDesc": "Master switch. Turns on the “Draft with AI” button in the inbox.",
+      "autoReply": "Auto-reply to inbound messages",
+      "autoReplyDesc": "The bot answers new inbound messages automatically (only when no flow handles them and no agent is assigned). Hands off to a human when it can’t help.",
+      "maxAutoReplies": "Max auto-replies per conversation",
+      "maxAutoRepliesDesc": "After this many bot replies in one thread, the bot goes quiet.",
+      "handoffTo": "Hand off to",
+      "handoffToDesc": "When the bot can’t help — or hits the reply cap — it pauses and routes the chat here, with a short note on what happened.",
+      "handoffQueue": "Unassigned queue (any agent can pick it up)",
       "remove": "Remove",
       "save": "Save",
       "missingModel": "Enter a model name.",
@@ -2149,7 +2166,7 @@
       "saveFailed": "Failed to save.",
       "removeSuccess": "AI configuration removed.",
       "removeFailed": "Failed to remove.",
-      "title": "Agent setup"
+      "openRouterHint": "Enter any OpenRouter model ID, for example openai/gpt-4o-mini or openai/deepseek/deepseek-r1. Your key is an sk-or-… key from openrouter.ai."
     },
     "aiKnowledge": {
       "loadFailed": "Failed to load knowledge base",
