@@ -2,7 +2,7 @@
   "name": "wacrm",
   "short_name": "wacrm",
   "description": "WhatsApp CRM - Shared inbox, contacts, pipelines, broadcasts",
-  "start_url": "/dashboard",
+  "start_url": "/login",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#020617",
