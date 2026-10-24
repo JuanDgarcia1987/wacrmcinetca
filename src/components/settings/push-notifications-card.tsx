@@ -56,7 +56,8 @@ export function PushNotificationsCard({ className }: { className?: string }) {
   const isPermissionGranted = permissionState === 'granted';
   const isPermissionDenied = permissionState === 'denied';
   const isPermissionDefault = permissionState === 'default';
-  const canSubscribe = supported && isPermissionGranted;
+  // canSubscribe: true if supported and permission is NOT denied (granted or default - default means we can request)
+  const canSubscribe = supported && !isPermissionDenied;
   const checked = subscribed && isPermissionGranted;
 
   const onToggle = async (next: boolean) => {
@@ -70,13 +71,20 @@ export function PushNotificationsCard({ className }: { className?: string }) {
       return;
     }
 
+    if (isPermissionDenied) {
+      toast.error(t('permissionDenied'), { description: t('permissionDeniedHint') });
+      return;
+    }
+
     if (!isPermissionGranted) {
-      if (isPermissionDenied) {
-        toast.error(t('permissionDenied'), { description: t('permissionDeniedHint') });
-      } else {
-        await requestPermission();
-        // permission state will update via focus/visibilitychange listeners
-        setTimeout(() => checkSubscription(), 100);
+      // Permission is 'default' - request it, then auto-subscribe
+      await requestPermission();
+      // Wait for permission state to update
+      await new Promise((r) => setTimeout(r, 200));
+      // Re-check permission (will be updated by focus/visibility listeners)
+      // If granted, proceed to subscribe
+      if (Notification.permission === 'granted') {
+        await toggle(); // subscribe
       }
       return;
     }
@@ -182,7 +190,7 @@ export function PushNotificationsCard({ className }: { className?: string }) {
                 <Switch
                   checked={checked}
                   onCheckedChange={(next) => void onToggle(next)}
-                  disabled={loading || !canSubscribe || isPermissionDenied}
+                  disabled={loading || !supported || isPermissionDenied}
                   aria-label={t('toggleLabel')}
                 />
               </div>
