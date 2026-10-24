@@ -2063,6 +2063,23 @@
         "template": "📋 Plantilla"
       }
     },
+    "pushNotifications": {
+      "title": "Notificaciones push (PWA)",
+      "description": "Recibe avisos en tu móvil/escritorio aunque el navegador esté cerrado. Requiere instalar la app (\"Añadir a pantalla de inicio\").",
+      "toggleLabel": "Activar notificaciones push",
+      "toggleDesc": "Funciona con la app instalada. En iOS: añade a pantalla de inicio desde Safari.",
+      "statusUnsupported": "Tu navegador no soporta notificaciones push.",
+      "statusDefault": "Permite notificaciones en el navegador para activar.",
+      "statusReady": "Listo para activar push.",
+      "statusSubscribed": "Notificaciones push activadas.",
+      "statusDenied": "Bloqueado en el navegador.",
+      "permissionDenied": "Permiso denegado",
+      "permissionDeniedHint": "Habilita notificaciones en la configuración del navegador (icono de candado junto a la barra de direcciones).",
+      "unsupported": "Push no disponible en este navegador/dispositivo.",
+      "sendTest": "Enviar notificación de prueba",
+      "installHint": "Instala la app (menú del navegador → Instalar / Añadir a pantalla de inicio) para recibir push.",
+      "iosHint": "En iOS: abre en Safari → menú compartir → \"Añadir a pantalla de inicio\". Luego activa push aquí."
+    },
     "apiKeys": {
       "title": "Claves de API",
       "description": "Las claves autentican la API REST pública (<apiCode>/api/v1</apiCode>) para que construyas tus propias automatizaciones. Envíalas como <headerCode>Authorization: Bearer &lt;key&gt;</headerCode>.",

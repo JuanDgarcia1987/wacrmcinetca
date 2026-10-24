@@ -2063,6 +2063,23 @@
         "template": "📋 Template"
       }
     },
+    "pushNotifications": {
+      "title": "Push notifications (PWA)",
+      "description": "Get alerts on your phone/desktop even when the browser is closed. Requires installing the app (\"Add to Home Screen\").",
+      "toggleLabel": "Enable push notifications",
+      "toggleDesc": "Works with the app installed. On iOS: add to Home Screen from Safari.",
+      "statusUnsupported": "Your browser doesn't support push notifications.",
+      "statusDefault": "Allow notifications in browser to enable push.",
+      "statusReady": "Ready to enable push.",
+      "statusSubscribed": "Push notifications enabled.",
+      "statusDenied": "Blocked in browser settings.",
+      "permissionDenied": "Permission denied",
+      "permissionDeniedHint": "Enable notifications in your browser's site settings (lock icon next to address bar).",
+      "unsupported": "Push not available in this browser/device.",
+      "sendTest": "Send test notification",
+      "installHint": "Install the app (browser menu → Install / Add to Home Screen) to receive push.",
+      "iosHint": "On iOS: open in Safari → Share menu → \"Add to Home Screen\". Then enable push here."
+    },
     "apiKeys": {
       "title": "API keys",
       "description": "Keys authenticate the public REST API (<apiCode>/api/v1</apiCode>) so you can build your own automations. Send them as <headerCode>Authorization: Bearer &lt;key&gt;</headerCode>.",

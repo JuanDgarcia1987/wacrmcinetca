@@ -32,6 +32,7 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
+import { sendPushToUser, sendPushToUsers, buildMessagePushPayload } from '@/lib/push/send'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -930,6 +931,33 @@ async function processMessage(
     content_type: contentType,
     text: contentText,
   })
+
+  // Send push notifications to account members for new inbound customer message
+  // Fire-and-forget: don't block webhook response
+  void (async () => {
+    try {
+      // Fetch account members (users who should receive push)
+      const { data: members } = await supabaseAdmin()
+        .from('account_members')
+        .select('user_id')
+        .eq('account_id', accountId)
+
+      if (members && members.length > 0) {
+        const userIds = members.map((m: { user_id: string }) => m.user_id)
+        const contactName = identityDisplayName(identity)
+        const preview = contentText || `[${message.type}]`
+
+        await sendPushToUsers(userIds, buildMessagePushPayload({
+          contactName,
+          messagePreview: preview,
+          conversationId: conversation.id,
+          messageId: insertedRows[0]?.id || message.id,
+        }))
+      }
+    } catch (err) {
+      console.error('[Push] Failed to send push notifications:', err)
+    }
+  })()
 }
 
 async function parseMessageContent(

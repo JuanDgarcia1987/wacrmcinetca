@@ -6,6 +6,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { SWRegistration } from "@/components/pwa/sw-registration";
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -38,12 +39,24 @@ const metadata: Metadata = {
     follow: false,
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    icon: [{ url: "/icons/icon-192.png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png" }],
+    other: [
+      { rel: "manifest", url: "/manifest.json" },
+      { rel: "apple-touch-icon", url: "/icons/apple-touch-icon.png" },
+    ],
   },
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
+  },
+  other: {
+    "theme-color": "#020617",
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "wacrm",
   },
 };
 
@@ -113,12 +126,20 @@ export default async function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#020617" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="wacrm" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-full bg-background text-foreground font-sans">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             {children}
             <ThemedToaster />
+            <SWRegistration />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
