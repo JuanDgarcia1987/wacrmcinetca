@@ -65,7 +65,7 @@ const SECURITY_HEADERS = [
 
 const APP_LOCALE = ["en", "pt", "es", "ko"].includes(process.env.NEXT_PUBLIC_APP_LOCALE ?? "")
   ? (process.env.NEXT_PUBLIC_APP_LOCALE as string)
-  : "en";
+  : "es";
 
 const nextConfig: NextConfig = {
   turbopack: {
