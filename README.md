@@ -185,3 +185,7 @@ rather than here. Details in
 ## License
 
 [MIT](./LICENSE). Fork it, brand it, host it.
+
+---
+
+Última actualización: editado y desplegado vía Hermes Agent.
