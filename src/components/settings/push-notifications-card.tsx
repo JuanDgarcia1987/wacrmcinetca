@@ -14,7 +14,7 @@ import {
   type BrowserNotifyPermission,
 } from '@/lib/notifications/browser-notify';
 
-// `Notification.permission` has no change event of its own. Re-read it
+// 'Notification.permission' has no change event of its own. Re-read it
 // whenever the tab regains focus (the user may have flipped the site
 // setting in the browser UI) and whenever our own preference changes.
 function subscribePermission(onChange: () => void): () => void {
@@ -220,4 +220,4 @@ export function PushNotificationsCard({ className }: { className?: string }) {
       </CardContent>
     </Card>
   );
-}// debug removido - 1793040603
+}
