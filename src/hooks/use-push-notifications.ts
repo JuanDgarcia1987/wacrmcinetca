@@ -81,6 +81,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: 'fcm', token }),
+        credentials: 'include',
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -150,6 +151,14 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         typeof localStorage !== 'undefined' && localStorage.getItem(NATIVE_ENABLED_KEY) === '1';
       if (wasEnabled) {
         pendingSubscribeRef.current = true;
+        // If we already have a cached token, push it to the server right away.
+        // Otherwise request a fresh FCM token; it arrives via the 'registration'
+        // listener and will be saved there (pendingSubscribeRef is true).
+        if (tokenRef.current) {
+          void saveFcmToken(tokenRef.current);
+        } else {
+          registerNative();
+        }
         updateState({ subscribed: true, permission: 'granted', loading: false });
       }
 
@@ -327,6 +336,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint: tokenRef.current }),
+            credentials: 'include',
           });
         } catch (err) {
           console.error('[Push] FCM unsubscribe error:', err);
