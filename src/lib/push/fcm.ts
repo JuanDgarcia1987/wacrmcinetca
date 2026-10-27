@@ -123,9 +123,11 @@ export async function sendFcmToToken(
                 // Target the sound/vibrate channel the app creates from JS
                 // (NATIVE_CHANNEL_ID in src/lib/push/capacitor.ts). Falls back
                 // to Android's default channel if it doesn't exist yet.
+                //
+                // NOTE: keep this lean — 'priority'/'visibility' are NOT valid
+                // fields here and FCM rejects the whole message with 400
+                // (priority belongs on `android.priority` above).
                 channel_id: 'wacrm-messages',
-                priority: 'high',
-                visibility: 'public',
               },
             },
           },
