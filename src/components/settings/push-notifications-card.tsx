@@ -36,6 +36,7 @@ const serverPermission = (): BrowserNotifyPermission => 'unsupported';
 export function PushNotificationsCard({ className }: { className?: string }) {
   const t = useTranslations('Settings.pushNotifications');
   const {
+    native,
     supported,
     permission,
     subscribed,
@@ -53,12 +54,14 @@ export function PushNotificationsCard({ className }: { className?: string }) {
     serverPermission,
   );
 
-  const isPermissionGranted = permissionState === 'granted';
-  const isPermissionDenied = permissionState === 'denied';
-  const isPermissionDefault = permissionState === 'default';
+  // In native (Capacitor) the browser Web Notification API isn't authoritative,
+  // so trust the hook's permission (driven by the Capacitor plugin).
+  const isPermissionGranted = native ? permission === 'granted' : permissionState === 'granted';
+  const isPermissionDenied = native ? permission === 'denied' : permissionState === 'denied';
+  const isPermissionDefault = native ? permission === 'default' : permissionState === 'default';
   // canSubscribe: true if supported and permission is NOT denied (granted or default - default means we can request)
   const canSubscribe = supported && !isPermissionDenied;
-  const checked = subscribed && isPermissionGranted;
+  const checked = subscribed && (native ? permission === 'granted' : isPermissionGranted);
 
   const onToggle = async (next: boolean) => {
     if (!next) {
@@ -68,6 +71,12 @@ export function PushNotificationsCard({ className }: { className?: string }) {
 
     if (!supported) {
       toast.error(t('unsupported'));
+      return;
+    }
+
+    if (native) {
+      // Native subscribe() handles the OS permission dialog and FCM registration.
+      await toggle();
       return;
     }
 

@@ -2,13 +2,20 @@
  * Types for Web Push notifications
  */
 
+/** Delivery channel for a stored subscription row */
+export type PushProvider = 'web' | 'fcm';
+
 /** Push subscription as stored in database */
 export interface PushSubscriptionRow {
   id: number;
   user_id: string;
   endpoint: string;
-  p256dh: string;
-  auth: string;
+  /** web-push key (NULL for FCM rows) */
+  p256dh: string | null;
+  /** web-push auth shared secret (NULL for FCM rows) */
+  auth: string | null;
+  /** 'web' = browser VAPID subscription, 'fcm' = native Android token */
+  provider?: PushProvider;
   user_agent: string | null;
   created_at: string;
   updated_at: string;

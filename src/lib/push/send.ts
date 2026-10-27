@@ -5,6 +5,7 @@
 
 import webpush from 'web-push';
 import { createClient } from '@/lib/supabase/server';
+import { sendFcmToToken, isFcmReady } from './fcm';
 import type { PushSubscriptionRow, PushPayload, PushSendResult, WebPushSubscription } from './types';
 
 // Initialize web-push with VAPID keys (lazy initialization)
@@ -26,13 +27,13 @@ function initVapid() {
   vapidInitialized = true;
 }
 
-/** Convert database row to web-push subscription format */
+/** Convert web-push row to web-push subscription format (p256dh/auth non-null for web rows) */
 function rowToSubscription(row: PushSubscriptionRow): WebPushSubscription {
   return {
     endpoint: row.endpoint,
     keys: {
-      p256dh: row.p256dh,
-      auth: row.auth,
+      p256dh: row.p256dh!,
+      auth: row.auth!,
     },
   };
 }
@@ -63,15 +64,7 @@ export async function sendPushToUser(
   payload: PushPayload
 ): Promise<PushSendResult> {
   initVapid();
-
-  if (!vapidInitialized) {
-    return {
-      success: false,
-      sent: 0,
-      failed: 0,
-      errors: [{ endpoint: '', error: 'VAPID not configured' }],
-    };
-  }
+  isFcmReady();
 
   const supabase = await createClient();
 
@@ -98,11 +91,23 @@ export async function sendPushToUser(
   const results: PushSendResult = { success: true, sent: 0, failed: 0, errors: [] };
   const expiredEndpoints: string[] = [];
 
-  // Send to each subscription
+  // Send to each subscription, routing by delivery provider.
   await Promise.all(
     subscriptions.map(async (sub) => {
-      const subscription = rowToSubscription(sub);
-      const result = await sendToSubscription(subscription, payload);
+      let result: { success: boolean; error?: string };
+
+      if (sub.provider === 'fcm') {
+        // Native Android: the FCM token lives in `endpoint`.
+        if (!isFcmReady()) {
+          result = { success: false, error: 'FCM not configured' };
+        } else {
+          result = await sendFcmToToken(sub.endpoint, payload);
+        }
+      } else if (!vapidInitialized) {
+        result = { success: false, error: 'VAPID not configured' };
+      } else {
+        result = await sendToSubscription(rowToSubscription(sub), payload);
+      }
 
       if (result.success) {
         results.sent++;

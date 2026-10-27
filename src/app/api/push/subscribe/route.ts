@@ -17,6 +17,37 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    // Native Android (FCM): body is { provider: 'fcm', token }.
+    if (body?.provider === 'fcm') {
+      const token = body.token as string;
+      if (!token) {
+        return NextResponse.json({ error: 'FCM token required' }, { status: 400 });
+      }
+
+      const { error: fcmError } = await supabase
+        .from('push_subscriptions')
+        .upsert(
+          {
+            user_id: user.id,
+            endpoint: token,
+            provider: 'fcm',
+            p256dh: null,
+            auth: null,
+            user_agent: request.headers.get('user-agent'),
+          },
+          { onConflict: 'user_id,endpoint' }
+        );
+
+      if (fcmError) {
+        console.error('[Push Subscribe] FCM database error:', fcmError);
+        return NextResponse.json({ error: 'Failed to save FCM token' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Browser Web Push: body is { endpoint, keys: { p256dh, auth } }.
     const { endpoint, keys } = body as WebPushSubscription;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -35,6 +66,7 @@ export async function POST(request: NextRequest) {
           endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
+          provider: 'web',
           user_agent: request.headers.get('user-agent'),
         },
         { onConflict: 'user_id,endpoint' }
