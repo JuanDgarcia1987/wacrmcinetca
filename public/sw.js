@@ -1,37 +1,41 @@
 /**
  * wacrm Service Worker
- * - Caches static assets for offline support
+ * - Caches ONLY immutable static assets (hashed /_next/build artifacts) for
+ *   offline support; NEVER caches HTML documents or protected routes.
  * - Handles Web Push notifications
  * - Handles notification clicks to open conversations
+ *
+ * NOTE (bugfix): earlier versions put '/' and page routes in STATIC_ASSETS and
+ * followed the /login redirect at install, caching the login HTML (with
+ * `Vary: rsc, next-router-*`) under those URLs. Serving that to a navigation
+ * made Chromium abort the page with net::ERR_FAILED. Documents and auth-guarded
+ * routes are now network-first and never cached.
  */
 
-const CACHE_NAME = 'wacrm-v1';
+const CACHE_NAME = 'wacrm-v2';
+const SHELL_CACHE = 'wacrm-shell-v2';
+// Only fingerprinted / hashed static assets go in the immutable cache.
+// Docs, HTML and auth-guarded routes are intentionally NOT listed here.
 const STATIC_ASSETS = [
-  '/',
-  '/dashboard',
-  '/inbox',
-  '/contacts',
-  '/pipelines',
   '/manifest.json',
 ];
 
-// Install - cache static assets
+// Install - cache only static shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS.map(url => new Request(url, { credentials: 'same-origin' })));
+    caches.open(SHELL_CACHE).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
     })
   );
   self.skipWaiting();
 });
 
-// Activate - clean old caches
+// Activate - clean ALL old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
           .map((name) => caches.delete(name))
       );
     })
@@ -39,7 +43,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch - serve from cache, fallback to network
+// Fetch - static assets from cache-first; documents/API always from network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -53,36 +57,40 @@ self.addEventListener('fetch', (event) => {
   // Skip API routes (always fresh)
   if (url.pathname.startsWith('/api/')) return;
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Serve from cache, update in background
-        event.waitUntil(
-          fetch(request).then((networkResponse) => {
-            if (networkResponse.ok) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone()));
-            }
-          }).catch(() => { /* offline */ })
-        );
-        return cachedResponse;
-      }
+  // Documents & navigations: ALWAYS network-first, never cache the HTML.
+  // The server sets cache-control: private, no-store and Vary: rsc, ... which
+  // makes stale/cached copies of these routes wrong (they depend on auth).
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request).catch(() => {
+        // Offline fallback: only the immutable shell, if any.
+        return caches.open(SHELL_CACHE).then((c) => c.match('/')) ||
+          new Response('Sin conexión', { status: 503 });
+      })
+    );
+    return;
+  }
 
-      // Not in cache - fetch from network
-      return fetch(request).then((networkResponse) => {
-        // Cache successful responses for static assets
-        if (networkResponse.ok && isStaticAsset(url.pathname)) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Offline fallback for navigation requests
-        if (request.mode === 'navigate') {
-          return caches.match('/') || new Response('Offline', { status: 503 });
-        }
-      });
-    })
-  );
+  // Static hashed assets: cache-first, background revalidate.
+  if (isStaticAsset(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          const network = fetch(request).then((resp) => {
+            if (resp && resp.ok) {
+              cache.put(request, resp.clone());
+            }
+            return resp;
+          }).catch(() => cached);
+          return cached || network;
+        })
+      )
+    );
+    return;
+  }
+
+  // Everything else: network only.
+  return;
 });
 
 function isStaticAsset(pathname) {
