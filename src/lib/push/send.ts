@@ -5,6 +5,7 @@
 
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { sendFcmToToken, isFcmReady } from './fcm';
 import type { PushSubscriptionRow, PushPayload, PushSendResult, WebPushSubscription } from './types';
 
 /** Admin Supabase client (bypasses RLS — needed to read push_subscriptions from server-side webhooks) */
@@ -30,17 +31,29 @@ function initVapid() {
     return;
   }
 
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidInitialized = true;
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidInitialized = true;
+  } catch (err) {
+    // A malformed VAPID key (or missing/`\n`-corrupted PEM) must NOT hard-fail
+    // push delivery. Native Android push uses FCM, which ignores VAPID entirely.
+    // Log and continue: web push degrades to "VAPID not configured" below, while
+    // the FCM branch still sends. (Previously this threw synchronously and made
+    // EVERY /api/push/test return 500 — FCM included.)
+    console.error(
+      '[Push] Invalid VAPID configuration — web push disabled, FCM unaffected:',
+      err instanceof Error ? err.message : err
+    );
+  }
 }
 
-/** Convert database row to web-push subscription format */
+/** Convert web-push row to web-push subscription format (p256dh/auth non-null for web rows) */
 function rowToSubscription(row: PushSubscriptionRow): WebPushSubscription {
   return {
     endpoint: row.endpoint,
     keys: {
-      p256dh: row.p256dh,
-      auth: row.auth,
+      p256dh: row.p256dh!,
+      auth: row.auth!,
     },
   };
 }
@@ -71,15 +84,7 @@ export async function sendPushToUser(
   payload: PushPayload
 ): Promise<PushSendResult> {
   initVapid();
-
-  if (!vapidInitialized) {
-    return {
-      success: false,
-      sent: 0,
-      failed: 0,
-      errors: [{ endpoint: '', error: 'VAPID not configured' }],
-    };
-  }
+  isFcmReady();
 
   const supabase = supabaseAdmin();
 
@@ -106,11 +111,23 @@ export async function sendPushToUser(
   const results: PushSendResult = { success: true, sent: 0, failed: 0, errors: [] };
   const expiredEndpoints: string[] = [];
 
-  // Send to each subscription
+  // Send to each subscription, routing by delivery provider.
   await Promise.all(
     subscriptions.map(async (sub) => {
-      const subscription = rowToSubscription(sub);
-      const result = await sendToSubscription(subscription, payload);
+      let result: { success: boolean; error?: string };
+
+      if (sub.provider === 'fcm') {
+        // Native Android: the FCM token lives in `endpoint`.
+        if (!isFcmReady()) {
+          result = { success: false, error: 'FCM not configured' };
+        } else {
+          result = await sendFcmToToken(sub.endpoint, payload);
+        }
+      } else if (!vapidInitialized) {
+        result = { success: false, error: 'VAPID not configured' };
+      } else {
+        result = await sendToSubscription(rowToSubscription(sub), payload);
+      }
 
       if (result.success) {
         results.sent++;
