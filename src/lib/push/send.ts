@@ -23,8 +23,20 @@ function initVapid() {
     return;
   }
 
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidInitialized = true;
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidInitialized = true;
+  } catch (err) {
+    // A malformed VAPID key (or missing/`\n`-corrupted PEM) must NOT hard-fail
+    // push delivery. Native Android push uses FCM, which ignores VAPID entirely.
+    // Log and continue: web push degrades to "VAPID not configured" below, while
+    // the FCM branch still sends. (Previously this threw synchronously and made
+    // EVERY /api/push/test return 500 — FCM included.)
+    console.error(
+      '[Push] Invalid VAPID configuration — web push disabled, FCM unaffected:',
+      err instanceof Error ? err.message : err
+    );
+  }
 }
 
 /** Convert web-push row to web-push subscription format (p256dh/auth non-null for web rows) */
