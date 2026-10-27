@@ -8,8 +8,17 @@ import {
   addNativePushListeners,
   requestNativePermission,
   registerNative,
+  ensureNativeChannel,
   type ReceivedNotification,
 } from '@/lib/push/capacitor';
+
+/**
+ * LocalStorage key recording that the user enabled native FCM push on THIS
+ * device. Without it the settings switch would reset to OFF on every app
+ * restart, because the hook can't tell "registered on the server" apart from
+ * "never opted in" purely from Capacitor's plugin state.
+ */
+const NATIVE_ENABLED_KEY = 'wacrm.push.native.enabled';
 
 /** Web Push subscription state */
 export interface PushSubscriptionState {
@@ -79,6 +88,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }
       tokenRef.current = token;
       updateState({ subscribed: true, loading: false, permission: 'granted', error: null });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(NATIVE_ENABLED_KEY, '1');
+      }
       toast.success('Notificaciones push activadas');
       return true;
     } catch (err) {
@@ -124,11 +136,23 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     checkSupport();
     updateState({ loading: false });
 
-    // Native: wire plugin listeners. The FCM token arrives asynchronously via
-    // the 'registration' event; we store it and only push it to the server if
-    // the user has opted in (pendingSubscribeRef).
+    // Native: create the sound channel, restore prior opt-in, and wire plugin
+    // listeners. The FCM token arrives asynchronously via the 'registration'
+    // event; we store it and only push it to the server if the user has opted
+    // in (pendingSubscribeRef).
     let nativeCleanup: (() => void) | undefined;
     if (isNativePush()) {
+      void ensureNativeChannel();
+
+      // Restore the switch state across restarts. FCM tokens are stable, so
+      // re-registering on the next 'registration' event is idempotent.
+      const wasEnabled =
+        typeof localStorage !== 'undefined' && localStorage.getItem(NATIVE_ENABLED_KEY) === '1';
+      if (wasEnabled) {
+        pendingSubscribeRef.current = true;
+        updateState({ subscribed: true, permission: 'granted', loading: false });
+      }
+
       nativeCleanup = addNativePushListeners({
         onToken: (value) => {
           tokenRef.current = value;
@@ -310,6 +334,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         tokenRef.current = null;
       }
       pendingSubscribeRef.current = false;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(NATIVE_ENABLED_KEY);
+      }
       updateState({ subscribed: false, loading: false });
       toast.success('Notificaciones push desactivadas');
       return true;

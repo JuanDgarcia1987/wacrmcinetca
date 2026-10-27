@@ -67,3 +67,30 @@ export async function requestNativePermission(): Promise<boolean> {
 export function registerNative(): void {
   void PushNotifications.register();
 }
+
+/**
+ * Channel used for FCM message notifications. MUST match the constant in
+ * `src/lib/push/fcm.ts` (the server points Android notifications at this id).
+ *
+ * No `sound` is passed on purpose: with `importance: 5` (HIGH) Android uses the
+ * system default notification sound + heads-up, which is what we want. An
+ * explicit res/raw filename would be needed only for a custom ringtone.
+ */
+export const NATIVE_CHANNEL_ID = 'wacrm-messages';
+
+/** Create (idempotent) the FCM channel with sound + vibration. Safe to call on every app start. */
+export async function ensureNativeChannel(): Promise<void> {
+  if (!isNativePush()) return;
+  try {
+    await PushNotifications.createChannel({
+      id: NATIVE_CHANNEL_ID,
+      name: 'Mensajes',
+      description: 'Notificaciones de nuevos mensajes de wacrm',
+      importance: 5, // IMPORTANCE_HIGH — rings, vibrates, shows heads-up
+      vibration: true,
+      lights: true,
+    });
+  } catch (err) {
+    console.error('[Push] ensureNativeChannel failed:', err);
+  }
+}

@@ -117,7 +117,17 @@ export async function sendFcmToToken(
               conversationId: payload.data?.conversationId ?? '',
               messageId: payload.data?.messageId ?? '',
             },
-            android: { priority: 'high' },
+            android: {
+              priority: 'high',
+              notification: {
+                // Target the sound/vibrate channel the app creates from JS
+                // (NATIVE_CHANNEL_ID in src/lib/push/capacitor.ts). Falls back
+                // to Android's default channel if it doesn't exist yet.
+                channel_id: 'wacrm-messages',
+                priority: 'high',
+                visibility: 'public',
+              },
+            },
           },
         }),
       }
