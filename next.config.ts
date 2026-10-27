@@ -77,6 +77,13 @@ const nextConfig: NextConfig = {
   // Docker image can run without node_modules or the Next CLI.
   // Harmless outside Docker: `next start` keeps working as before.
   output: "standalone",
+
+  // firebase-admin pulls in cloud/gRPC deps (dynamic requires,
+  // worker_threads, __dirname) that Next's bundler can't statically trace
+  // into the standalone image. Marking it external makes Next require()
+  // it from node_modules at runtime instead of bundling it — required so
+  // the FCM push sender loads at all in the deployed container.
+  serverExternalPackages: ["firebase-admin"],
   experimental: {
     turbopackPluginRuntimeStrategy: "workerThreads",
   },
