@@ -1,0 +1,21 @@
+# Dependencies
+/node_modules
+
+# Generated web assets (copied from the deployed site by `cap sync`); nothing to commit
+/www
+
+# IDE (machine-specific)
+/android/.idea/
+
+# Gradle build artifacts + caches
+/android/.gradle/
+/android/**/build/
+/android/.cxx/
+/android/local.properties
+
+# Packaged binaries (rebuilt on demand; never commit)
+*.apk
+*.aab
+
+# OS
+.DS_Store

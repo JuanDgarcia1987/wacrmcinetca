@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "375010213680",
+    "project_id": "wacrmcinetca",
+    "storage_bucket": "wacrmcinetca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375010213680:android:87a30b819ae44f1c12d2f5",
+        "android_client_info": {
+          "package_name": "com.wacrmcinetca.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGT-5KnSnWTw1Uduf_zGJ215c6Mj1FP7Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

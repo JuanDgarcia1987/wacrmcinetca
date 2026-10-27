@@ -45,3 +45,7 @@ next-env.d.ts
 
 # supabase
 supabase/.temp/
+
+# Android build artifacts / backups (restore google-services.json from here if lost)
+/wacrm-app*.apk
+/google-services-backup.json
