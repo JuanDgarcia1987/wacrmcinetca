@@ -4,9 +4,17 @@
  */
 
 import webpush from 'web-push';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { sendFcmToToken, isFcmReady } from './fcm';
 import type { PushSubscriptionRow, PushPayload, PushSendResult, WebPushSubscription } from './types';
+
+/** Admin Supabase client (bypasses RLS — needed to read push_subscriptions from server-side webhooks) */
+function supabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // Initialize web-push with VAPID keys (lazy initialization)
 let vapidInitialized = false;
@@ -78,7 +86,7 @@ export async function sendPushToUser(
   initVapid();
   isFcmReady();
 
-  const supabase = await createClient();
+const supabase = supabaseAdmin();
 
   // Fetch all subscriptions for user
   const { data: subscriptions, error } = await supabase
