@@ -305,6 +305,34 @@ function metaTimestampToIso(timestamp: string): string | null {
   return Number.isFinite(seconds) ? new Date(seconds * 1000).toISOString() : null
 }
 
+
+/** Send a Telegram message to the configured chat when a WhatsApp message arrives. */
+async function sendTelegramMessage(contactName: string, messageText: string, conversationId: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+
+  try {
+    const text = 'Nuevo mensaje de WhatsApp
+
+De: ' + contactName + '
+Mensaje: ' + messageText + '
+Ver: https://wacrm-wacrm.pnp1lh.easypanel.host/inbox?c=' + conversationId;
+    await fetch('https://api.telegram.org/bot' + botToken + '/sendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'Markdown',
+      }),
+    });
+  } catch (err) {
+    console.error('[Telegram] Failed to send message:', err);
+  }
+}
+
+
 async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
   if (!body.entry) return
 
@@ -953,6 +981,8 @@ async function processMessage(
           conversationId: conversation.id,
           messageId: insertedRows[0]?.id || message.id,
         }))
+
+        await sendTelegramMessage(contactName, preview, conversation.id)
       }
     } catch (err) {
       console.error('[Push] Failed to send push notifications:', err)
