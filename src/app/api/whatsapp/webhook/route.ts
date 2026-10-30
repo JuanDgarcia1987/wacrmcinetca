@@ -311,14 +311,13 @@ async function sendTelegramMessage(contactName: string, messageText: string, con
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!botToken || !chatId) return;
-
   try {
-    const text = 'Nuevo mensaje de WhatsApp
+    const text = `Nuevo mensaje de WhatsApp
 
-De: ' + contactName + '
-Mensaje: ' + messageText + '
-Ver: https://wacrm-wacrm.pnp1lh.easypanel.host/inbox?c=' + conversationId;
-    await fetch('https://api.telegram.org/bot' + botToken + '/sendMessage', {
+De: ${contactName}
+Mensaje: ${messageText}
+Ver: https://wacrm-wacrm.pnp1lh.easypanel.host/inbox?c=${conversationId}`;
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
