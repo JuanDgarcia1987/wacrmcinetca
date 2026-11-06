@@ -66,6 +66,9 @@ export async function sendConversionEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
