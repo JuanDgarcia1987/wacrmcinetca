@@ -74,9 +74,16 @@ if (flag('with-event-source-id')) {
 }
 
 const payload = { data: [event], access_token: token }
+
+// A test event code (Events Manager → "Probar eventos") makes the event show up
+// there instantly and keeps it out of optimization/reporting.
+const testCode = arg('test-code', process.env.META_TEST_EVENT_CODE || '')
+if (testCode) payload.test_event_code = testCode
+
 const url = `https://graph.facebook.com/${version}/${pixelId}/events`
 
 console.log('POST', url)
+if (testCode) console.log('test_event_code:', testCode)
 console.log(JSON.stringify({ data: [event] }, null, 2))
 
 const resp = await fetch(url, {

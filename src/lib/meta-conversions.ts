@@ -28,6 +28,11 @@ const META_API_VERSION = process.env.META_API_VERSION || 'v26.0'
 // was present in the payload while every call failed with 2804043, so it is
 // off unless META_EVENT_SOURCE_ID is explicitly set in the environment.
 const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || ''
+// Temporary debugging aid. When set, every event is tagged with this code and
+// shows up instantly in Events Manager → "Probar eventos". Events sent with a
+// test code are NOT used for optimization or reporting, so this must be LEFT
+// UNSET in normal operation — set it only while verifying the pipeline.
+const META_TEST_EVENT_CODE = process.env.META_TEST_EVENT_CODE || ''
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -130,10 +135,11 @@ export async function sendConversionEvent(params: {
   if (params.eventId) eventData.event_id = params.eventId
   if (params.clickId) eventData.click_id = params.clickId
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     data: [eventData],
     access_token: META_ACCESS_TOKEN,
   }
+  if (META_TEST_EVENT_CODE) payload.test_event_code = META_TEST_EVENT_CODE
 
   try {
     const url = `https://graph.facebook.com/${META_API_VERSION}/${META_PIXEL_ID}/events`
