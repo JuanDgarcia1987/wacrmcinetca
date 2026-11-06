@@ -21,8 +21,9 @@ import { createHash } from 'crypto'
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN
 const META_PIXEL_ID = process.env.META_PIXEL_ID
-const META_API_VERSION = 'v20.0'
-const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || '1136962248765532'
+// Graph API versions live ~2 years. v20.0 (May 2024) is past its window;
+// override with META_API_VERSION if the account is pinned to another version.
+const META_API_VERSION = process.env.META_API_VERSION || 'v26.0'
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -34,13 +35,12 @@ function sha256(value: string): string {
 
 /**
  * Formatea un número de teléfono para el hash de Meta.
- * Meta requiere que el teléfono se envíe en formato E.164 (con prefijo +)
- * y se haga hash sobre el string completo incluyendo el +.
+ * Meta normaliza a E.164 y exige hashear SOLO los dígitos: sin '+',
+ * sin espacios, sin guiones ni paréntesis. Un '+' en el string cambia
+ * el SHA256 y hace que el número nunca coincida con el de Meta.
  */
 function normalizePhoneForHash(phone: string): string {
-  // Quitamos espacios, guiones y paréntesis, pero SÍ conservamos el prefijo +
-  // El hash debe calcularse sobre el string E.164 completo (con +)
-  return phone.replace(/[\s\-\(\)]/g, '')
+  return phone.replace(/\D/g, '')
 }
 
 /**
@@ -69,15 +69,9 @@ export async function sendConversionEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
-  status?: string
-  messagingType?: string
-  watermark?: string
-  phoneNumberId?: string
-  // Campos nuevos para validación de dispositivo expandida (error 2804043)
-  os?: string       // ej: "Android", "iOS", "Windows"
-  osVersion?: string // ej: "13", "17", "10"
-  deviceName?: string // ej: "Pixel 7", "iPhone 15"
-}): Promise<{ success: boolean; data?: any; error?: string }> {
+  /** object_id: required by some Meta event sources; omitted by default. */
+  objectId?: string
+}): Promise<{ success: boolean; data?: unknown; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
       '[meta-conversions] Faltan variables de entorno META_ACCESS_TOKEN o META_PIXEL_ID'
@@ -88,58 +82,34 @@ export async function sendConversionEvent(params: {
   const eventTime = params.eventTime ?? Math.floor(Date.now() / 1000)
   const phoneHash = sha256(normalizePhoneForHash(params.phoneNumber))
 
-  // Build user_data with required and recommended fields for Meta Conversions API
-  // Especially for WhatsApp Business events, these fields are critical for device validation
-  // Including expanded device information to prevent error 2804043
-  const userData: Record<string, any> = {
-    // Phone in E.164 format (with +), hashed via SHA256
-    // Meta expects the raw E.164 string (including +) to be hashed
+  // user_data only accepts the fields Meta documents for customer matching.
+  // Anything else (os, os_version, device_name, status, messaging_type,
+  // watermark, phone_number_id) is silently dropped by the API — device
+  // information lives in `app_data.extinfo`, which is only validated when
+  // action_source is 'app'.
+  const userData: Record<string, unknown> = {
     phone: phoneHash,
-    // client_user_id: your internal user ID or a hashed identifier.
-    // HIGHLY RECOMMENDED for WhatsApp Business matching reliability
     client_user_id: params.clientUserId,
-    // Expanded device information - CRITICAL for preventing error 2804043
-    // These fields tell Meta the device OS and version format is correct
-    // os: 'Android' | 'iOS' | 'Windows' | etc.
-    // os_version: '13' | '17' | '10' | etc.
-    // device_name: 'Pixel 7' | 'iPhone 15' | etc.
-    ...(params.os && { os: params.os }),
-    ...(params.osVersion && { os_version: params.osVersion }),
-    ...(params.deviceName && { device_name: params.deviceName }),
-    // Status helps with device validation (sent, delivered, read)
-    // Only add if provided
-    ...(params.status && { status: params.status }),
-    // Messaging type (CONVERSATION, TEMPLATE) - important for WhatsApp Business
-    // Only add if provided
-    ...(params.messagingType && { messaging_type: params.messagingType }),
-    // Watermark helps with deduplication of events
-    // Only add if provided
-    ...(params.watermark && { watermark: params.watermark }),
-    // Phone number ID - identifies which WhatsApp number sent the message
-    // Only add if provided
-    ...(params.phoneNumberId && { phone_number_id: params.phoneNumberId }),
-    // Optional: client IP address (helps with device validation)
-    // ...(params.clientIpAddress && { client_ip_address: params.clientIpAddress }),
-    // Optional: user agent (device fingerprint)
-    // ...(params.clientUserAgent && { client_user_agent: params.clientUserAgent }),
   }
 
-  // Add optional fields if provided
   if (params.fbp) userData.fbp = params.fbp
   if (params.fbc) userData.fbc = params.fbc
-  // Uncomment below if you want to include IP and UA:
-  // if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
-  // if (params.clientUserAgent) userData.client_user_agent = params.clientUserAgent
+  if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
+  if (params.clientUserAgent)
+    userData.client_user_agent = params.clientUserAgent
 
-  const eventData: Record<string, any> = {
+  const eventData: Record<string, unknown> = {
     event_name: params.eventName,
     event_time: eventTime,
-    // action_source: 'chat' is valid, but for WhatsApp Business events,
-    // 'whatsapp' may be more appropriate. However, 'chat' is accepted.
+    // 'chat' is correct for messenger/WhatsApp conversations. 'app' triggers
+    // app_data.extinfo validation and fails with subcode 2804043 when the
+    // extinfo array is absent.
     action_source: params.actionSource ?? 'chat',
-    event_source_id: META_EVENT_SOURCE_ID,
     user_data: userData,
   }
+
+  // Only app/website events carry this; sending it for chat events is noise.
+  if (params.objectId) eventData.object_id = params.objectId
 
   if (params.eventId) eventData.event_id = params.eventId
   if (params.clickId) eventData.click_id = params.clickId
@@ -187,15 +157,12 @@ export async function sendConversionEvent(params: {
  *
  * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
- * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
- * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
- * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
- * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
- * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
- * - status: Estado del mensaje (sent, delivered, read)
- * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
- * - watermark: Marcador para deduplicación de eventos
- * - phoneNumberId: ID del número de WhatsApp Business
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendLeadEvent(params: {
   phoneNumber: string
@@ -207,13 +174,6 @@ export async function sendLeadEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
-  os?: string
-  osVersion?: string
-  deviceName?: string
-  status?: string
-  messagingType?: string
-  watermark?: string
-  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Lead',
@@ -226,13 +186,6 @@ export async function sendLeadEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
-    os: params.os,
-    osVersion: params.osVersion,
-    deviceName: params.deviceName,
-    status: params.status,
-    messagingType: params.messagingType,
-    watermark: params.watermark,
-    phoneNumberId: params.phoneNumberId,
   })
 }
 
@@ -241,15 +194,12 @@ export async function sendLeadEvent(params: {
  *
  * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
- * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
- * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
- * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
- * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
- * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
- * - status: Estado del mensaje (sent, delivered, read)
- * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
- * - watermark: Marcador para deduplicación de eventos
- * - phoneNumberId: ID del número de WhatsApp Business
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendContactEvent(params: {
   phoneNumber: string
@@ -261,13 +211,6 @@ export async function sendContactEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
-  os?: string
-  osVersion?: string
-  deviceName?: string
-  status?: string
-  messagingType?: string
-  watermark?: string
-  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Contact',
@@ -280,13 +223,6 @@ export async function sendContactEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
-    os: params.os,
-    osVersion: params.osVersion,
-    deviceName: params.deviceName,
-    status: params.status,
-    messagingType: params.messagingType,
-    watermark: params.watermark,
-    phoneNumberId: params.phoneNumberId,
   })
 }
 
@@ -296,15 +232,12 @@ export async function sendContactEvent(params: {
  *
  * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
- * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
- * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
- * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
- * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
- * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
- * - status: Estado del mensaje (sent, delivered, read)
- * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
- * - watermark: Marcador para deduplicación de eventos
- * - phoneNumberId: ID del número de WhatsApp Business
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendCompleteRegistrationEvent(params: {
   phoneNumber: string
@@ -316,13 +249,6 @@ export async function sendCompleteRegistrationEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
-  os?: string
-  osVersion?: string
-  deviceName?: string
-  status?: string
-  messagingType?: string
-  watermark?: string
-  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'CompleteRegistration',
@@ -335,12 +261,5 @@ export async function sendCompleteRegistrationEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
-    os: params.os,
-    osVersion: params.osVersion,
-    deviceName: params.deviceName,
-    status: params.status,
-    messagingType: params.messagingType,
-    watermark: params.watermark,
-    phoneNumberId: params.phoneNumberId,
   })
 }

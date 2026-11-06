@@ -779,11 +779,17 @@ async function processMessage(
   // Solo enviamos si tenemos un número de teléfono del remitente.
   // El teléfono se hashea con SHA256 dentro de sendConversionEvent.
   if (message.from) {
+    // action_source MUST be 'chat' here. 'app' makes Meta validate the
+    // extended device information block (app_data.extinfo, whose first
+    // element is the "extinfo version"), and without it every event is
+    // rejected with subcode 2804043 ("invalid expanded device information
+    // version / OS version"). Inbound WhatsApp messages are chat events,
+    // not app events, so 'chat' is also the semantically correct value.
     void sendConversionEvent({
       eventName: 'Lead',
       phoneNumber: message.from,
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
-      actionSource: 'app',
+      actionSource: 'chat',
       eventId: message.id,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando evento a Meta:', err)
