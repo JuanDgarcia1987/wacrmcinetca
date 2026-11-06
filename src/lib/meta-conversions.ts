@@ -69,6 +69,10 @@ export async function sendConversionEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  status?: string
+  messagingType?: string
+  watermark?: string
+  phoneNumberId?: string
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
@@ -81,24 +85,38 @@ export async function sendConversionEvent(params: {
   const phoneHash = sha256(normalizePhoneForHash(params.phoneNumber))
 
   // Build user_data with required and recommended fields for Meta Conversions API
-  // Especially for WhatsApp Business events, client_user_id is highly recommended
+  // Especially for WhatsApp Business events, these fields are critical for device validation
   const userData: Record<string, any> = {
     // Phone in E.164 format (with +), hashed via SHA256
     // Meta expects the raw E.164 string (including +) to be hashed
     phone: phoneHash,
     // client_user_id: your internal user ID or a hashed identifier.
-    // Improves matching reliability, especially for WhatsApp Business.
+    // HIGHLY RECOMMENDED for WhatsApp Business matching reliability
     client_user_id: params.clientUserId,
-    // Optional: hashed email for better matching
-    // email: params.hashedEmail,
+    // Status helps with device validation (sent, delivered, read)
+    // Only add if provided
+    ...(params.status && { status: params.status }),
+    // Messaging type (CONVERSATION, TEMPLATE) - important for WhatsApp Business
+    // Only add if provided
+    ...(params.messagingType && { messaging_type: params.messagingType }),
+    // Watermark helps with deduplication of events
+    // Only add if provided
+    ...(params.watermark && { watermark: params.watermark }),
+    // Phone number ID - identifies which WhatsApp number sent the message
+    // Only add if provided
+    ...(params.phoneNumberId && { phone_number_id: params.phoneNumberId }),
+    // Optional: client IP address (helps with device validation)
+    // ...(params.clientIpAddress && { client_ip_address: params.clientIpAddress }),
+    // Optional: user agent (device fingerprint)
+    // ...(params.clientUserAgent && { client_user_agent: params.clientUserAgent }),
   }
 
   // Add optional fields if provided
   if (params.fbp) userData.fbp = params.fbp
   if (params.fbc) userData.fbc = params.fbc
-  if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
-  if (params.clientUserAgent)
-    userData.client_user_agent = params.clientUserAgent
+  // Uncomment below if you want to include IP and UA:
+  // if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
+  // if (params.clientUserAgent) userData.client_user_agent = params.clientUserAgent
 
   const eventData: Record<string, any> = {
     event_name: params.eventName,
@@ -154,10 +172,14 @@ export async function sendConversionEvent(params: {
  * Ideal para usar en el webhook de WhatsApp cuando llega un mensaje entrante
  * de un contacto nuevo.
  *
- * Parámetros opcionales adicionales para mejorar el matching de Meta:
- * - clientUserId: ID de usuario interno o identificador hasheado
- * - clientIpAddress: IP del cliente (hasheada recomendada)
- * - clientUserAgent: User-Agent del navegador/aplicación
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
+ * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - status: Estado del mensaje (sent, delivered, read)
+ * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
+ * - watermark: Marcador para deduplicación de eventos
+ * - phoneNumberId: ID del número de WhatsApp Business
  */
 export async function sendLeadEvent(params: {
   phoneNumber: string
@@ -169,6 +191,10 @@ export async function sendLeadEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  status?: string
+  messagingType?: string
+  watermark?: string
+  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Lead',
@@ -181,16 +207,24 @@ export async function sendLeadEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    status: params.status,
+    messagingType: params.messagingType,
+    watermark: params.watermark,
+    phoneNumberId: params.phoneNumberId,
   })
 }
 
 /**
  * Envía un evento de Contact cuando un cliente inicia un chat.
  *
- * Parámetros opcionales adicionales para mejorar el matching de Meta:
- * - clientUserId: ID de usuario interno o identificador hasheado
- * - clientIpAddress: IP del cliente (hasheada recomendada)
- * - clientUserAgent: User-Agent del navegador/aplicación
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
+ * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - status: Estado del mensaje (sent, delivered, read)
+ * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
+ * - watermark: Marcador para deduplicación de eventos
+ * - phoneNumberId: ID del número de WhatsApp Business
  */
 export async function sendContactEvent(params: {
   phoneNumber: string
@@ -202,6 +236,10 @@ export async function sendContactEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  status?: string
+  messagingType?: string
+  watermark?: string
+  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Contact',
@@ -214,6 +252,10 @@ export async function sendContactEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    status: params.status,
+    messagingType: params.messagingType,
+    watermark: params.watermark,
+    phoneNumberId: params.phoneNumberId,
   })
 }
 
@@ -221,10 +263,14 @@ export async function sendContactEvent(params: {
  * Envía un evento de registro completo (CompleteRegistration) cuando un cliente
  * completa su registro en el CRM.
  *
- * Parámetros opcionales adicionales para mejorar el matching de Meta:
- * - clientUserId: ID de usuario interno o identificador hasheado
- * - clientIpAddress: IP del cliente (hasheada recomendada)
- * - clientUserAgent: User-Agent del navegador/aplicación
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
+ * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - status: Estado del mensaje (sent, delivered, read)
+ * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
+ * - watermark: Marcador para deduplicación de eventos
+ * - phoneNumberId: ID del número de WhatsApp Business
  */
 export async function sendCompleteRegistrationEvent(params: {
   phoneNumber: string
@@ -236,6 +282,10 @@ export async function sendCompleteRegistrationEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  status?: string
+  messagingType?: string
+  watermark?: string
+  phoneNumberId?: string
 }) {
   return sendConversionEvent({
     eventName: 'CompleteRegistration',
@@ -248,5 +298,9 @@ export async function sendCompleteRegistrationEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    status: params.status,
+    messagingType: params.messagingType,
+    watermark: params.watermark,
+    phoneNumberId: params.phoneNumberId,
   })
 }
