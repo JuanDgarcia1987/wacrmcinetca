@@ -109,6 +109,27 @@ interface WhatsAppMessage {
   button?: { text?: string; payload?: string }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /**
+   * Present on the first message when the customer arrived by tapping a
+   * Click-to-WhatsApp ad. This is the only ad attribution Meta gives us
+   * for a direct-to-WhatsApp ad — there is no page and no fbclid, so
+   * `ctwa_clid` is what ties the conversation to the exact ad click.
+   */
+  referral?: {
+    source_url?: string
+    source_id?: string
+    source_type?: string
+    headline?: string
+    body?: string
+    media_type?: string
+    image_url?: string
+    video_url?: string
+    thumbnail_url?: string
+    /** Click id of the CTWA ad. Goes to Meta as `user_data.ctwa_clid`. */
+    ctwa_clid?: string
+    /** Free-form `ref` parameter configured on the ad. */
+    ref?: string
+  }
 }
 
 /** One entry of a failed status's `errors` array, as Meta sends it. */
@@ -637,6 +658,18 @@ async function processMessage(
   if (!convResult) return
   const conversation = convResult.conversation
 
+  // Atribución de anuncios Click-to-WhatsApp. Cuando el cliente llega
+  // tocando un anuncio que abre el chat directamente, Meta adjunta un
+  // objeto `referral` al primer mensaje. `ctwa_clid` es el equivalente
+  // del fbclid en este flujo y es lo único que permite atribuir la
+  // conversación al anuncio exacto.
+  const ctwaClid = message.referral?.ctwa_clid ?? null
+  if (ctwaClid) {
+    console.log(
+      `[meta-conversions] CTWA referral: ${ctwaClid} (fuente: ${message.referral?.source_id ?? 'n/d'})`
+    )
+  }
+
   // Emit conversation.created as soon as the thread is opened — BEFORE
   // the reaction short-circuit below — so a conversation first opened by
   // a reaction still fires the event, and a subscriber always sees the
@@ -801,6 +834,7 @@ async function processMessage(
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
       actionSource: 'chat',
       eventId: message.id,
+      ctwaClid: ctwaClid ?? undefined,
       fbc: attribution?.fbc,
       fbp: attribution?.fbp,
     }).catch((err) => {
@@ -819,9 +853,12 @@ async function processMessage(
       phoneNumber: contactRecord.phone,
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
       eventId: `contact_${conversation.id}`,
-      // fbc/fbp vienen del token de /api/ad-ref. Con ellos Meta atribuye
-      // la conversación al clic exacto del anuncio en vez de intentar
-      // emparejar por teléfono.
+      // Atribución, en dos sabores según cómo llegó el cliente:
+      //  - CTWA (anuncio directo a WhatsApp): `ctwa_clid`.
+      //  - Anuncio que pasó por la landing: fbc/fbp del token de /api/ad-ref.
+      // Con cualquiera de los dos Meta atribuye al clic exacto y deja de
+      // depender del emparejamiento por teléfono.
+      ctwaClid: ctwaClid ?? undefined,
       fbc: attribution?.fbc,
       fbp: attribution?.fbp,
     }).catch((err) => {
@@ -852,6 +889,25 @@ async function processMessage(
 
   if (convError) {
     console.error('Error updating conversation:', convError)
+  }
+
+  // Guardar el referral del anuncio en el hilo. Sólo llega una vez (en
+  // el primer mensaje), así que no hace falta pisarlo en cada mensaje
+  // posterior. Best-effort: si falla, el evento a Meta ya salió igual.
+  if (ctwaClid) {
+    const { error: referralError } = await supabaseAdmin()
+      .from('conversations')
+      .update({
+        ctwa_clid: ctwaClid,
+        ad_source_id: message.referral?.source_id ?? null,
+      })
+      .eq('id', conversation.id)
+    if (referralError) {
+      console.warn(
+        '[meta-conversions] No se pudo guardar el ctwa_clid:',
+        referralError.message
+      )
+    }
   }
 
   // A customer writing again re-opens the thread (issue #409). Kept as a

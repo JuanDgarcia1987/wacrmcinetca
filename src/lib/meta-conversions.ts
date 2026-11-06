@@ -75,6 +75,12 @@ export async function sendConversionEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  /**
+   * Click id de un anuncio Click-to-WhatsApp. Llega en
+   * `message.referral.ctwa_clid` del webhook. Es el equivalente al fbc
+   * cuando el anuncio abre el chat directamente, sin página web.
+   */
+  ctwaClid?: string
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
@@ -106,6 +112,7 @@ export async function sendConversionEvent(params: {
 
   if (params.fbp) userData.fbp = params.fbp
   if (params.fbc) userData.fbc = params.fbc
+  if (params.ctwaClid) userData.ctwa_clid = params.ctwaClid
   if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
   if (params.clientUserAgent)
     userData.client_user_agent = params.clientUserAgent
@@ -143,13 +150,31 @@ export async function sendConversionEvent(params: {
 
   try {
     const url = `https://graph.facebook.com/${META_API_VERSION}/${META_PIXEL_ID}/events`
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+    const post = (body: Record<string, unknown>) =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+    let resp = await post(payload)
+
+    // `user_data.ctwa_clid` es un campo relativamente nuevo. Si Meta lo
+    // rechaza, perder el evento entero sería absurdo: se reintenta sin
+    // él y la conversación queda atribuida por teléfono, como antes.
+    // `event_id` es el mismo en ambos intentos, así que Meta deduplica
+    // si por algún motivo el primero sí se registró.
+    if (!resp.ok && params.ctwaClid) {
+      const firstError = await resp.text()
+      console.warn(
+        `[meta-conversions] Meta rechazó el evento con ctwa_clid ` +
+          `(HTTP ${resp.status}): ${firstError}. Reintentando sin ctwa_clid.`
+      )
+      delete userData.ctwa_clid
+      resp = await post(payload)
+    }
 
     if (!resp.ok) {
       const errorBody = await resp.text()
@@ -230,6 +255,8 @@ export async function sendContactEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  /** Click id de un anuncio Click-to-WhatsApp (`message.referral.ctwa_clid`). */
+  ctwaClid?: string
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
@@ -242,6 +269,7 @@ export async function sendContactEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    ctwaClid: params.ctwaClid,
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
