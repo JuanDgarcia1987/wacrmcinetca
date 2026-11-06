@@ -33,7 +33,10 @@ import {
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
 import { sendPushToUser, sendPushToUsers, buildMessagePushPayload } from '@/lib/push/send'
-import { sendConversionEvent } from '@/lib/meta-conversions'
+import {
+  sendContactEvent,
+  sendConversionEvent,
+} from '@/lib/meta-conversions'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -754,14 +757,36 @@ async function processMessage(
   // Solo enviamos si tenemos un número de teléfono del remitente.
   // El teléfono se hashea con SHA256 dentro de sendConversionEvent.
   if (message.from) {
+    // action_source MUST be 'chat' here. 'app' makes Meta validate the
+    // extended device information block (app_data.extinfo, whose first
+    // element is the "extinfo version"), and without it every event is
+    // rejected with subcode 2804043 ("invalid expanded device information
+    // version / OS version"). Inbound WhatsApp messages are chat events,
+    // not app events, so 'chat' is also the semantically correct value.
     void sendConversionEvent({
       eventName: 'Lead',
       phoneNumber: message.from,
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
-      actionSource: 'app',
+      actionSource: 'chat',
       eventId: message.id,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando evento a Meta:', err)
+    })
+  }
+
+  // Meta Conversions API — Contact: el cliente abrió una conversación.
+  // Se dispara una sola vez por hilo (convResult.created), así que no se
+  // repite con cada mensaje. Nota: si el contacto es nuevo, en ese mismo
+  // mensaje también sale el Lead de arriba; para que Contact cuente solo
+  // clientes recurrentes, añade `&& !contactOutcome.wasCreated`.
+  // `eventId` incluye el id de la conversación para que Meta pueda deduplicar.
+  if (convResult.created && contactRecord.phone) {
+    void sendContactEvent({
+      phoneNumber: contactRecord.phone,
+      eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
+      eventId: `contact_${conversation.id}`,
+    }).catch((err) => {
+      console.error('[meta-conversions] Error enviando Contact a Meta:', err)
     })
   }
 
@@ -956,11 +981,24 @@ async function processMessage(
   // Fire-and-forget: don't block webhook response
   void (async () => {
     try {
-      // Fetch account members (users who should receive push)
-      const { data: members } = await supabaseAdmin()
-        .from('account_members')
+      // Membership lives in `profiles` — `profiles.account_id` has been the
+      // source of truth since migration 017. There is NO `account_members`
+      // table, so the old query returned `{ data: null, error: ... }`, the
+      // `members && members.length > 0` guard fell through, and no push (or
+      // Telegram) notification was ever sent. The error was discarded, which
+      // is why this failed silently.
+      const { data: members, error: membersError } = await supabaseAdmin()
+        .from('profiles')
         .select('user_id')
         .eq('account_id', accountId)
+
+      if (membersError) {
+        console.error(
+          "[Push] Failed to resolve account members:",
+          membersError.message
+        )
+        return
+      }
 
       if (members && members.length > 0) {
         const userIds = members.map((m: { user_id: string }) => m.user_id)
@@ -973,10 +1011,40 @@ async function processMessage(
           conversationId: conversation.id,
           messageId: insertedRows[0]?.id || message.id,
         }))
-
-        // Notificaciones a Telegram desactivadas
-        // await sendTelegramMessage(contactName, preview, conversation.id);
       }
+      }
+
+      if (!members || members.length === 0) {
+        console.warn('[Push] No members found for account', accountId)
+        return
+      }
+
+      const userIds = members.map((m: { user_id: string }) => m.user_id)
+      const contactName = identityDisplayName(identity)
+      const preview = contentText || `[${message.type}]`
+
+      const pushResult = await sendPushToUsers(userIds, buildMessagePushPayload({
+        contactName,
+        messagePreview: preview,
+        conversationId: conversation.id,
+        messageId: insertedRows[0]?.id || message.id,
+      }))
+
+      // Surface the outcome: `sendPushToUser` reports per-subscription errors
+      // instead of throwing, so without this the aggregate result was invisible.
+      if (pushResult.sent === 0) {
+        console.warn(
+          `[Push] No notifications sent (${userIds.length} member(s), ` +
+            `${pushResult.failed} failure(s)):`,
+          pushResult.errors
+        )
+      } else {
+        console.log(
+          `[Push] Sent ${pushResult.sent} notification(s) to ${userIds.length} member(s)` +
+            (pushResult.failed ? `, ${pushResult.failed} failed` : '')
+        )
+      }
+
     } catch (err) {
       console.error('[Push] Failed to send push notifications:', err)
     }

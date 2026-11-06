@@ -21,8 +21,13 @@ import { createHash } from 'crypto'
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN
 const META_PIXEL_ID = process.env.META_PIXEL_ID
-const META_API_VERSION = 'v20.0'
-const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || '1136962248765532'
+// Graph API versions live ~2 years. v20.0 (May 2024) is past its window;
+// override with META_API_VERSION if the account is pinned to another version.
+const META_API_VERSION = process.env.META_API_VERSION || 'v26.0'
+// Opt-in. `event_source_id` is NOT part of the documented /events schema and
+// was present in the payload while every call failed with 2804043, so it is
+// off unless META_EVENT_SOURCE_ID is explicitly set in the environment.
+const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || ''
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -33,11 +38,13 @@ function sha256(value: string): string {
 }
 
 /**
- * Formatea un número de teléfono eliminando espacios, guiones y paréntesis,
- * y agregando el prefijo '+' si no lo tiene.
+ * Formatea un número de teléfono para el hash de Meta.
+ * Meta normaliza a E.164 y exige hashear SOLO los dígitos: sin '+',
+ * sin espacios, sin guiones ni paréntesis. Un '+' en el string cambia
+ * el SHA256 y hace que el número nunca coincida con el de Meta.
  */
 function normalizePhoneForHash(phone: string): string {
-  return phone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '')
+  return phone.replace(/\D/g, '')
 }
 
 /**
@@ -63,7 +70,14 @@ export async function sendConversionEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
-}): Promise<{ success: boolean; data?: any; error?: string }> {
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
+  /** object_id: required by some Meta event sources; omitted by default. */
+  objectId?: string
+  /** custom_data: value/currency/contents for e-commerce events. */
+  customData?: Record<string, unknown>
+}): Promise<{ success: boolean; data?: unknown; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
       '[meta-conversions] Faltan variables de entorno META_ACCESS_TOKEN o META_PIXEL_ID'
@@ -74,20 +88,44 @@ export async function sendConversionEvent(params: {
   const eventTime = params.eventTime ?? Math.floor(Date.now() / 1000)
   const phoneHash = sha256(normalizePhoneForHash(params.phoneNumber))
 
-  const userData: Record<string, any> = {
+  // user_data only accepts the fields Meta documents for customer matching.
+  // Anything else (os, os_version, device_name, status, messaging_type,
+  // watermark, phone_number_id) is silently dropped by the API — device
+  // information lives in `app_data.extinfo`, which is only validated when
+  // action_source is 'app'.
+  const userData: Record<string, unknown> = {
+    // `ph` is the documented customer-matching key and accepts an array.
     ph: [phoneHash],
+    client_user_id: params.clientUserId,
   }
 
   if (params.fbp) userData.fbp = params.fbp
   if (params.fbc) userData.fbc = params.fbc
+  if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
+  if (params.clientUserAgent)
+    userData.client_user_agent = params.clientUserAgent
 
-  const eventData: Record<string, any> = {
+  const eventData: Record<string, unknown> = {
     event_name: params.eventName,
     event_time: eventTime,
+    // 'chat' is correct for messenger/WhatsApp conversations. 'app' triggers
+    // app_data.extinfo validation and fails with subcode 2804043 when the
+    // extinfo array is absent.
     action_source: params.actionSource ?? 'chat',
-    event_source_id: META_EVENT_SOURCE_ID,
     user_data: userData,
   }
+
+  // Only app/website events carry this; sending it for chat events is noise.
+  if (params.objectId) eventData.object_id = params.objectId
+
+  // e-commerce fields (value, currency, contents) are NOT top-level event
+  // parameters — Meta only reads them from `custom_data`. Sending them at the
+  // top level is silently ignored and the purchase reports as zero revenue.
+  if (params.customData && Object.keys(params.customData).length > 0) {
+    eventData.custom_data = params.customData
+  }
+
+  if (META_EVENT_SOURCE_ID) eventData.event_source_id = META_EVENT_SOURCE_ID
 
   if (params.eventId) eventData.event_id = params.eventId
   if (params.clickId) eventData.click_id = params.clickId
@@ -132,6 +170,15 @@ export async function sendConversionEvent(params: {
  * Envía un evento de Lead cuando un cliente nuevo nos escribe por primera vez.
  * Ideal para usar en el webhook de WhatsApp cuando llega un mensaje entrante
  * de un contacto nuevo.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendLeadEvent(params: {
   phoneNumber: string
@@ -140,6 +187,9 @@ export async function sendLeadEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'Lead',
@@ -149,11 +199,23 @@ export async function sendLeadEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
   })
 }
 
 /**
  * Envía un evento de Contact cuando un cliente inicia un chat.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendContactEvent(params: {
   phoneNumber: string
@@ -162,6 +224,9 @@ export async function sendContactEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'Contact',
@@ -171,12 +236,24 @@ export async function sendContactEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
   })
 }
 
 /**
  * Envía un evento de registro completo (CompleteRegistration) cuando un cliente
  * completa su registro en el CRM.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching y validación de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
+ * - clientIpAddress: IP del cliente (mejora el matching)
+ * - clientUserAgent: User-Agent del cliente (mejora el matching)
+ *
+ * Nota: el error 2804043 NO se arregla añadiendo campos de dispositivo a
+ * user_data — esos campos no existen en el esquema de la API. Se produce
+ * cuando action_source es 'app' y falta app_data.extinfo.
  */
 export async function sendCompleteRegistrationEvent(params: {
   phoneNumber: string
@@ -185,6 +262,9 @@ export async function sendCompleteRegistrationEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'CompleteRegistration',
@@ -194,5 +274,85 @@ export async function sendCompleteRegistrationEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
+  })
+}
+
+/** Un renglón de la compra. `id` es el SKU; `title` el nombre del producto. */
+export interface PurchaseItem {
+  /** SKU del producto (se envía como `contents[].id`). */
+  id: string
+  /** Nombre visible del producto (opcional, `contents[].title`). */
+  title?: string
+  quantity?: number
+  /** Precio unitario. */
+  itemPrice: number
+}
+
+/**
+ * Envía un evento Purchase cuando un cliente compra.
+ *
+ * `value` y `currency` van dentro de `custom_data` — Meta NO lee esos campos
+ * en la raíz del evento, y si se envían ahí la compra se reporta con valor 0.
+ *
+ * Si no se pasa `value`, se calcula como la suma de `quantity * itemPrice`.
+ */
+export async function sendPurchaseEvent(params: {
+  phoneNumber: string
+  /** Monto total. Si falta, se deriva de `items`. */
+  value?: number
+  /** Código ISO 4217, ej: 'USD'. Default 'USD'. */
+  currency?: string
+  items?: PurchaseItem[]
+  /** ID de la orden en tu sistema, útil para deduplicar. */
+  orderId?: string
+  eventTime?: number
+  eventId?: string
+  clickId?: string
+  fbp?: string
+  fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
+}) {
+  const contents = (params.items ?? []).map((item) => ({
+    id: item.id,
+    quantity: item.quantity ?? 1,
+    item_price: item.itemPrice,
+    ...(item.title ? { title: item.title } : {}),
+  }))
+
+  const derivedValue = contents.reduce(
+    (sum, c) => sum + c.item_price * c.quantity,
+    0
+  )
+  const value = params.value ?? derivedValue
+
+  const customData: Record<string, unknown> = {
+    value,
+    currency: params.currency ?? 'USD',
+  }
+  if (contents.length > 0) {
+    customData.content_type = 'product'
+    customData.contents = contents
+    customData.content_ids = contents.map((c) => c.id)
+    customData.num_items = contents.reduce((n, c) => n + c.quantity, 0)
+  }
+  if (params.orderId) customData.order_id = params.orderId
+
+  return sendConversionEvent({
+    eventName: 'Purchase',
+    phoneNumber: params.phoneNumber,
+    eventTime: params.eventTime,
+    eventId: params.eventId,
+    clickId: params.clickId,
+    fbp: params.fbp,
+    fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
+    customData,
   })
 }
