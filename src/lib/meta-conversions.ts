@@ -22,6 +22,7 @@ import { createHash } from 'crypto'
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN
 const META_PIXEL_ID = process.env.META_PIXEL_ID
 const META_API_VERSION = 'v20.0'
+const META_EVENT_SOURCE_URL = process.env.META_EVENT_SOURCE_URL || 'https://wacrm-wacrm.pnp1lh.easypanel.host/api/whatsapp/webhook'
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -83,7 +84,8 @@ export async function sendConversionEvent(params: {
   const eventData: Record<string, any> = {
     event_name: params.eventName,
     event_time: eventTime,
-    action_source: params.actionSource ?? 'app',
+    action_source: params.actionSource ?? 'whatsapp',
+    event_source_url: META_EVENT_SOURCE_URL,
     user_data: userData,
   }
 
@@ -143,7 +145,6 @@ export async function sendLeadEvent(params: {
     eventName: 'Lead',
     phoneNumber: params.phoneNumber,
     eventTime: params.eventTime,
-    actionSource: 'app',
     eventId: params.eventId,
     clickId: params.clickId,
     fbp: params.fbp,
@@ -166,7 +167,6 @@ export async function sendContactEvent(params: {
     eventName: 'Contact',
     phoneNumber: params.phoneNumber,
     eventTime: params.eventTime,
-    actionSource: 'app',
     eventId: params.eventId,
     clickId: params.clickId,
     fbp: params.fbp,
@@ -190,7 +190,6 @@ export async function sendCompleteRegistrationEvent(params: {
     eventName: 'CompleteRegistration',
     phoneNumber: params.phoneNumber,
     eventTime: params.eventTime,
-    actionSource: 'app',
     eventId: params.eventId,
     clickId: params.clickId,
     fbp: params.fbp,
