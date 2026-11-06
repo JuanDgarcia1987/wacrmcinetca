@@ -22,7 +22,7 @@ import { createHash } from 'crypto'
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN
 const META_PIXEL_ID = process.env.META_PIXEL_ID
 const META_API_VERSION = 'v20.0'
-const META_EVENT_SOURCE_URL = process.env.META_EVENT_SOURCE_URL || 'https://wacrm-wacrm.pnp1lh.easypanel.host/api/whatsapp/webhook'
+const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || '1136962248765532'
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -85,6 +85,7 @@ export async function sendConversionEvent(params: {
     event_name: params.eventName,
     event_time: eventTime,
     action_source: params.actionSource ?? 'chat',
+    event_source_id: META_EVENT_SOURCE_ID,
     user_data: userData,
   }
 
