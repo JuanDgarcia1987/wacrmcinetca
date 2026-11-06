@@ -37,6 +37,12 @@ import {
   sendContactEvent,
   sendConversionEvent,
 } from '@/lib/meta-conversions'
+import {
+  consumeAdRef,
+  extractAdRefToken,
+  stripAdRefToken,
+  type AdRefAttribution,
+} from '@/lib/meta/ad-attribution'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -651,12 +657,38 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
-    await parseMessageContent(
-      message,
-      accessToken,
-      mirrorMedia ? { accountId } : null
-    )
+  const parsedContent = await parseMessageContent(
+    message,
+    accessToken,
+    mirrorMedia ? { accountId } : null
+  )
+  // `contentText` es `let` porque más abajo se limpia el `Ref: XXXX`
+  // de atribución antes de guardar el mensaje.
+  let contentText = parsedContent.contentText
+  const { mediaUrl, mediaType, interactiveReplyId } = parsedContent
+
+  // Atribución de anuncios. Si la conversación acaba de abrirse y el
+  // primer mensaje trae el `Ref: XXXX` que puso la landing page, lo
+  // cambiamos por el fbclid guardado en `ad_refs`. El token viaja en el
+  // texto pre-rellenado de wa.me (ver /api/ad-ref), así que sólo puede
+  // llegar en el primer mensaje: buscarlo en cada mensaje sería una
+  // consulta por nada.
+  //
+  // Si el token no existe o caducó, `attribution` queda null y el
+  // evento Contact sale como siempre, atribuido sólo por teléfono.
+  let attribution: AdRefAttribution | null = null
+  if (convResult.created) {
+    const refToken = extractAdRefToken(contentText)
+    if (refToken) {
+      attribution = await consumeAdRef(supabaseAdmin(), refToken)
+      if (attribution) {
+        // El `Ref:` es ruido para el agente y para la IA; se guarda el
+        // mensaje sin él. Si el cliente sólo mandó la referencia, se
+        // conserva el original.
+        contentText = stripAdRefToken(contentText ?? '')
+      }
+    }
+  }
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
@@ -769,6 +801,8 @@ async function processMessage(
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
       actionSource: 'chat',
       eventId: message.id,
+      fbc: attribution?.fbc,
+      fbp: attribution?.fbp,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando evento a Meta:', err)
     })
@@ -785,6 +819,11 @@ async function processMessage(
       phoneNumber: contactRecord.phone,
       eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
       eventId: `contact_${conversation.id}`,
+      // fbc/fbp vienen del token de /api/ad-ref. Con ellos Meta atribuye
+      // la conversación al clic exacto del anuncio en vez de intentar
+      // emparejar por teléfono.
+      fbc: attribution?.fbc,
+      fbp: attribution?.fbp,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando Contact a Meta:', err)
     })
