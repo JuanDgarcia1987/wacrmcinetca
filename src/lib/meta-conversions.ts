@@ -73,6 +73,10 @@ export async function sendConversionEvent(params: {
   messagingType?: string
   watermark?: string
   phoneNumberId?: string
+  // Campos nuevos para validación de dispositivo expandida (error 2804043)
+  os?: string       // ej: "Android", "iOS", "Windows"
+  osVersion?: string // ej: "13", "17", "10"
+  deviceName?: string // ej: "Pixel 7", "iPhone 15"
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
@@ -86,6 +90,7 @@ export async function sendConversionEvent(params: {
 
   // Build user_data with required and recommended fields for Meta Conversions API
   // Especially for WhatsApp Business events, these fields are critical for device validation
+  // Including expanded device information to prevent error 2804043
   const userData: Record<string, any> = {
     // Phone in E.164 format (with +), hashed via SHA256
     // Meta expects the raw E.164 string (including +) to be hashed
@@ -93,6 +98,14 @@ export async function sendConversionEvent(params: {
     // client_user_id: your internal user ID or a hashed identifier.
     // HIGHLY RECOMMENDED for WhatsApp Business matching reliability
     client_user_id: params.clientUserId,
+    // Expanded device information - CRITICAL for preventing error 2804043
+    // These fields tell Meta the device OS and version format is correct
+    // os: 'Android' | 'iOS' | 'Windows' | etc.
+    // os_version: '13' | '17' | '10' | etc.
+    // device_name: 'Pixel 7' | 'iPhone 15' | etc.
+    ...(params.os && { os: params.os }),
+    ...(params.osVersion && { os_version: params.osVersion }),
+    ...(params.deviceName && { device_name: params.deviceName }),
     // Status helps with device validation (sent, delivered, read)
     // Only add if provided
     ...(params.status && { status: params.status }),
@@ -176,6 +189,9 @@ export async function sendConversionEvent(params: {
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
  * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
  * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
+ * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
+ * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
  * - status: Estado del mensaje (sent, delivered, read)
  * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
  * - watermark: Marcador para deduplicación de eventos
@@ -191,6 +207,9 @@ export async function sendLeadEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  os?: string
+  osVersion?: string
+  deviceName?: string
   status?: string
   messagingType?: string
   watermark?: string
@@ -207,6 +226,9 @@ export async function sendLeadEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    os: params.os,
+    osVersion: params.osVersion,
+    deviceName: params.deviceName,
     status: params.status,
     messagingType: params.messagingType,
     watermark: params.watermark,
@@ -221,6 +243,9 @@ export async function sendLeadEvent(params: {
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
  * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
  * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
+ * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
+ * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
  * - status: Estado del mensaje (sent, delivered, read)
  * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
  * - watermark: Marcador para deduplicación de eventos
@@ -236,6 +261,9 @@ export async function sendContactEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  os?: string
+  osVersion?: string
+  deviceName?: string
   status?: string
   messagingType?: string
   watermark?: string
@@ -252,6 +280,9 @@ export async function sendContactEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    os: params.os,
+    osVersion: params.osVersion,
+    deviceName: params.deviceName,
     status: params.status,
     messagingType: params.messagingType,
     watermark: params.watermark,
@@ -267,6 +298,9 @@ export async function sendContactEvent(params: {
  * - clientUserId: ID de usuario interno o identificador hasheado (recomendado)
  * - clientIpAddress: IP del cliente (ayuda con validación de dispositivo)
  * - clientUserAgent: User-Agent del navegador/aplicación (huella de dispositivo)
+ * - os: Sistema operativo (Android, iOS, Windows, etc.) - CRITICAL para error 2804043
+ * - osVersion: Versión del SO (13, 17, 10, etc.) - CRITICAL para error 2804043
+ * - deviceName: Nombre del dispositivo (Pixel 7, iPhone 15, etc.) - CRITICAL para error 2804043
  * - status: Estado del mensaje (sent, delivered, read)
  * - messagingType: Tipo de mensaje (CONVERSATION, TEMPLATE)
  * - watermark: Marcador para deduplicación de eventos
@@ -282,6 +316,9 @@ export async function sendCompleteRegistrationEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  os?: string
+  osVersion?: string
+  deviceName?: string
   status?: string
   messagingType?: string
   watermark?: string
@@ -298,6 +335,9 @@ export async function sendCompleteRegistrationEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    os: params.os,
+    osVersion: params.osVersion,
+    deviceName: params.deviceName,
     status: params.status,
     messagingType: params.messagingType,
     watermark: params.watermark,
