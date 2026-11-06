@@ -24,6 +24,10 @@ const META_PIXEL_ID = process.env.META_PIXEL_ID
 // Graph API versions live ~2 years. v20.0 (May 2024) is past its window;
 // override with META_API_VERSION if the account is pinned to another version.
 const META_API_VERSION = process.env.META_API_VERSION || 'v26.0'
+// Opt-in. `event_source_id` is NOT part of the documented /events schema and
+// was present in the payload while every call failed with 2804043, so it is
+// off unless META_EVENT_SOURCE_ID is explicitly set in the environment.
+const META_EVENT_SOURCE_ID = process.env.META_EVENT_SOURCE_ID || ''
 
 /**
  * Hashea un valor con SHA256 (requerido por Meta para datos personales).
@@ -71,6 +75,8 @@ export async function sendConversionEvent(params: {
   clientUserAgent?: string
   /** object_id: required by some Meta event sources; omitted by default. */
   objectId?: string
+  /** custom_data: value/currency/contents for e-commerce events. */
+  customData?: Record<string, unknown>
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   if (!META_ACCESS_TOKEN || !META_PIXEL_ID) {
     console.error(
@@ -88,7 +94,8 @@ export async function sendConversionEvent(params: {
   // information lives in `app_data.extinfo`, which is only validated when
   // action_source is 'app'.
   const userData: Record<string, unknown> = {
-    phone: phoneHash,
+    // `ph` is the documented customer-matching key and accepts an array.
+    ph: [phoneHash],
     client_user_id: params.clientUserId,
   }
 
@@ -110,6 +117,15 @@ export async function sendConversionEvent(params: {
 
   // Only app/website events carry this; sending it for chat events is noise.
   if (params.objectId) eventData.object_id = params.objectId
+
+  // e-commerce fields (value, currency, contents) are NOT top-level event
+  // parameters — Meta only reads them from `custom_data`. Sending them at the
+  // top level is silently ignored and the purchase reports as zero revenue.
+  if (params.customData && Object.keys(params.customData).length > 0) {
+    eventData.custom_data = params.customData
+  }
+
+  if (META_EVENT_SOURCE_ID) eventData.event_source_id = META_EVENT_SOURCE_ID
 
   if (params.eventId) eventData.event_id = params.eventId
   if (params.clickId) eventData.click_id = params.clickId
@@ -261,5 +277,82 @@ export async function sendCompleteRegistrationEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+  })
+}
+
+/** Un renglón de la compra. `id` es el SKU; `title` el nombre del producto. */
+export interface PurchaseItem {
+  /** SKU del producto (se envía como `contents[].id`). */
+  id: string
+  /** Nombre visible del producto (opcional, `contents[].title`). */
+  title?: string
+  quantity?: number
+  /** Precio unitario. */
+  itemPrice: number
+}
+
+/**
+ * Envía un evento Purchase cuando un cliente compra.
+ *
+ * `value` y `currency` van dentro de `custom_data` — Meta NO lee esos campos
+ * en la raíz del evento, y si se envían ahí la compra se reporta con valor 0.
+ *
+ * Si no se pasa `value`, se calcula como la suma de `quantity * itemPrice`.
+ */
+export async function sendPurchaseEvent(params: {
+  phoneNumber: string
+  /** Monto total. Si falta, se deriva de `items`. */
+  value?: number
+  /** Código ISO 4217, ej: 'USD'. Default 'USD'. */
+  currency?: string
+  items?: PurchaseItem[]
+  /** ID de la orden en tu sistema, útil para deduplicar. */
+  orderId?: string
+  eventTime?: number
+  eventId?: string
+  clickId?: string
+  fbp?: string
+  fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
+}) {
+  const contents = (params.items ?? []).map((item) => ({
+    id: item.id,
+    quantity: item.quantity ?? 1,
+    item_price: item.itemPrice,
+    ...(item.title ? { title: item.title } : {}),
+  }))
+
+  const derivedValue = contents.reduce(
+    (sum, c) => sum + c.item_price * c.quantity,
+    0
+  )
+  const value = params.value ?? derivedValue
+
+  const customData: Record<string, unknown> = {
+    value,
+    currency: params.currency ?? 'USD',
+  }
+  if (contents.length > 0) {
+    customData.content_type = 'product'
+    customData.contents = contents
+    customData.content_ids = contents.map((c) => c.id)
+    customData.num_items = contents.reduce((n, c) => n + c.quantity, 0)
+  }
+  if (params.orderId) customData.order_id = params.orderId
+
+  return sendConversionEvent({
+    eventName: 'Purchase',
+    phoneNumber: params.phoneNumber,
+    eventTime: params.eventTime,
+    eventId: params.eventId,
+    clickId: params.clickId,
+    fbp: params.fbp,
+    fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
+    customData,
   })
 }

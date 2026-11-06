@@ -33,7 +33,10 @@ import {
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
 import { sendPushToUser, sendPushToUsers, buildMessagePushPayload } from '@/lib/push/send'
-import { sendConversionEvent } from '@/lib/meta-conversions'
+import {
+  sendContactEvent,
+  sendConversionEvent,
+} from '@/lib/meta-conversions'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -793,6 +796,22 @@ async function processMessage(
       eventId: message.id,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando evento a Meta:', err)
+    })
+  }
+
+  // Meta Conversions API — Contact: el cliente abrió una conversación.
+  // Se dispara una sola vez por hilo (convResult.created), así que no se
+  // repite con cada mensaje. Nota: si el contacto es nuevo, en ese mismo
+  // mensaje también sale el Lead de arriba; para que Contact cuente solo
+  // clientes recurrentes, añade `&& !contactOutcome.wasCreated`.
+  // `eventId` incluye el id de la conversación para que Meta pueda deduplicar.
+  if (convResult.created && contactRecord.phone) {
+    void sendContactEvent({
+      phoneNumber: contactRecord.phone,
+      eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
+      eventId: `contact_${conversation.id}`,
+    }).catch((err) => {
+      console.error('[meta-conversions] Error enviando Contact a Meta:', err)
     })
   }
 

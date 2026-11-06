@@ -16,6 +16,7 @@ import {
   buildPage,
   isUuid,
 } from '@/lib/api/v1/pagination';
+import { sendCompleteRegistrationEvent } from '@/lib/meta-conversions';
 import {
   CONTACT_SELECT,
   serializeContact,
@@ -133,6 +134,19 @@ export async function POST(request: Request) {
     }
 
     const contact = await getContactById(ctx.supabase, ctx.accountId, id);
+
+    // Meta Conversions API — CompleteRegistration: la integración acaba de
+    // registrar un cliente nuevo. Best-effort y sin bloquear la respuesta:
+    // un fallo de Meta no debe hacer fallar la creación del contacto.
+    if (created) {
+      void sendCompleteRegistrationEvent({
+        phoneNumber: phone,
+        eventId: `contact_${id}`,
+      }).catch((err) => {
+        console.error('[meta-conversions] Error enviando CompleteRegistration:', err);
+      });
+    }
+
     return ok(contact, created ? 201 : 200);
   } catch (err) {
     if (err instanceof ContactError) {
