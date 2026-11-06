@@ -33,6 +33,7 @@ import {
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
 import { sendPushToUser, sendPushToUsers, buildMessagePushPayload } from '@/lib/push/send'
+import { sendConversionEvent } from '@/lib/meta-conversions'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -770,6 +771,23 @@ async function processMessage(
       message.id
     )
     return
+  }
+
+  // ============================================================
+  // Meta Conversions API — enviar evento al recibir mensaje entrante
+  // ============================================================
+  // Solo enviamos si tenemos un número de teléfono del remitente.
+  // El teléfono se hashea con SHA256 dentro de sendConversionEvent.
+  if (message.from) {
+    void sendConversionEvent({
+      eventName: 'Lead',
+      phoneNumber: message.from,
+      eventTime: Math.floor(new Date(receivedAt).getTime() / 1000),
+      actionSource: 'app',
+      eventId: message.id,
+    }).catch((err) => {
+      console.error('[meta-conversions] Error enviando evento a Meta:', err)
+    })
   }
 
   const isFirstInboundMessage = await claimFirstInboundMessage(
