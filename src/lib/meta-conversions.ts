@@ -33,11 +33,14 @@ function sha256(value: string): string {
 }
 
 /**
- * Formatea un número de teléfono eliminando espacios, guiones y paréntesis,
- * y agregando el prefijo '+' si no lo tiene.
+ * Formatea un número de teléfono para el hash de Meta.
+ * Meta requiere que el teléfono se envíe en formato E.164 (con prefijo +)
+ * y se haga hash sobre el string completo incluyendo el +.
  */
 function normalizePhoneForHash(phone: string): string {
-  return phone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '')
+  // Quitamos espacios, guiones y paréntesis, pero SÍ conservamos el prefijo +
+  // El hash debe calcularse sobre el string E.164 completo (con +)
+  return phone.replace(/[\s\-\(\)]/g, '')
 }
 
 /**
@@ -74,16 +77,31 @@ export async function sendConversionEvent(params: {
   const eventTime = params.eventTime ?? Math.floor(Date.now() / 1000)
   const phoneHash = sha256(normalizePhoneForHash(params.phoneNumber))
 
+  // Build user_data with required and recommended fields for Meta Conversions API
+  // Especially for WhatsApp Business events, client_user_id is highly recommended
   const userData: Record<string, any> = {
-    ph: [phoneHash],
+    // Phone in E.164 format (with +), hashed via SHA256
+    // Meta expects the raw E.164 string (including +) to be hashed
+    phone: phoneHash,
+    // client_user_id: your internal user ID or a hashed identifier.
+    // Improves matching reliability, especially for WhatsApp Business.
+    client_user_id: params.clientUserId,
+    // Optional: hashed email for better matching
+    // email: params.hashedEmail,
   }
 
+  // Add optional fields if provided
   if (params.fbp) userData.fbp = params.fbp
   if (params.fbc) userData.fbc = params.fbc
+  if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
+  if (params.clientUserAgent)
+    userData.client_user_agent = params.clientUserAgent
 
   const eventData: Record<string, any> = {
     event_name: params.eventName,
     event_time: eventTime,
+    // action_source: 'chat' is valid, but for WhatsApp Business events,
+    // 'whatsapp' may be more appropriate. However, 'chat' is accepted.
     action_source: params.actionSource ?? 'chat',
     event_source_id: META_EVENT_SOURCE_ID,
     user_data: userData,
@@ -132,6 +150,11 @@ export async function sendConversionEvent(params: {
  * Envía un evento de Lead cuando un cliente nuevo nos escribe por primera vez.
  * Ideal para usar en el webhook de WhatsApp cuando llega un mensaje entrante
  * de un contacto nuevo.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado
+ * - clientIpAddress: IP del cliente (hasheada recomendada)
+ * - clientUserAgent: User-Agent del navegador/aplicación
  */
 export async function sendLeadEvent(params: {
   phoneNumber: string
@@ -140,6 +163,9 @@ export async function sendLeadEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'Lead',
@@ -149,11 +175,19 @@ export async function sendLeadEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
   })
 }
 
 /**
  * Envía un evento de Contact cuando un cliente inicia un chat.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado
+ * - clientIpAddress: IP del cliente (hasheada recomendada)
+ * - clientUserAgent: User-Agent del navegador/aplicación
  */
 export async function sendContactEvent(params: {
   phoneNumber: string
@@ -162,6 +196,9 @@ export async function sendContactEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'Contact',
@@ -171,12 +208,20 @@ export async function sendContactEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
   })
 }
 
 /**
  * Envía un evento de registro completo (CompleteRegistration) cuando un cliente
  * completa su registro en el CRM.
+ *
+ * Parámetros opcionales adicionales para mejorar el matching de Meta:
+ * - clientUserId: ID de usuario interno o identificador hasheado
+ * - clientIpAddress: IP del cliente (hasheada recomendada)
+ * - clientUserAgent: User-Agent del navegador/aplicación
  */
 export async function sendCompleteRegistrationEvent(params: {
   phoneNumber: string
@@ -185,6 +230,9 @@ export async function sendCompleteRegistrationEvent(params: {
   clickId?: string
   fbp?: string
   fbc?: string
+  clientUserId?: string
+  clientIpAddress?: string
+  clientUserAgent?: string
 }) {
   return sendConversionEvent({
     eventName: 'CompleteRegistration',
@@ -194,5 +242,8 @@ export async function sendCompleteRegistrationEvent(params: {
     clickId: params.clickId,
     fbp: params.fbp,
     fbc: params.fbc,
+    clientUserId: params.clientUserId,
+    clientIpAddress: params.clientIpAddress,
+    clientUserAgent: params.clientUserAgent,
   })
 }
