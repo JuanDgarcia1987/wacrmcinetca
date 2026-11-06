@@ -1006,26 +1006,57 @@ async function processMessage(
   // Fire-and-forget: don't block webhook response
   void (async () => {
     try {
-      // Fetch account members (users who should receive push)
-      const { data: members } = await supabaseAdmin()
-        .from('account_members')
+      // Membership lives in `profiles` — `profiles.account_id` has been the
+      // source of truth since migration 017. There is NO `account_members`
+      // table, so the old query returned `{ data: null, error: ... }`, the
+      // `members && members.length > 0` guard fell through, and no push (or
+      // Telegram) notification was ever sent. The error was discarded, which
+      // is why this failed silently.
+      const { data: members, error: membersError } = await supabaseAdmin()
+        .from('profiles')
         .select('user_id')
         .eq('account_id', accountId)
 
-      if (members && members.length > 0) {
-        const userIds = members.map((m: { user_id: string }) => m.user_id)
-        const contactName = identityDisplayName(identity)
-        const preview = contentText || `[${message.type}]`
-
-        await sendPushToUsers(userIds, buildMessagePushPayload({
-          contactName,
-          messagePreview: preview,
-          conversationId: conversation.id,
-          messageId: insertedRows[0]?.id || message.id,
-        }))
-
-        await sendTelegramMessage(contactName, preview, conversation.id)
+      if (membersError) {
+        console.error(
+          '[Push] Failed to resolve account members:',
+          membersError.message
+        )
+        return
       }
+
+      if (!members || members.length === 0) {
+        console.warn('[Push] No members found for account', accountId)
+        return
+      }
+
+      const userIds = members.map((m: { user_id: string }) => m.user_id)
+      const contactName = identityDisplayName(identity)
+      const preview = contentText || `[${message.type}]`
+
+      const pushResult = await sendPushToUsers(userIds, buildMessagePushPayload({
+        contactName,
+        messagePreview: preview,
+        conversationId: conversation.id,
+        messageId: insertedRows[0]?.id || message.id,
+      }))
+
+      // Surface the outcome: `sendPushToUser` reports per-subscription errors
+      // instead of throwing, so without this the aggregate result was invisible.
+      if (pushResult.sent === 0) {
+        console.warn(
+          `[Push] No notifications sent (${userIds.length} member(s), ` +
+            `${pushResult.failed} failure(s)):`,
+          pushResult.errors
+        )
+      } else {
+        console.log(
+          `[Push] Sent ${pushResult.sent} notification(s) to ${userIds.length} member(s)` +
+            (pushResult.failed ? `, ${pushResult.failed} failed` : '')
+        )
+      }
+
+      await sendTelegramMessage(contactName, preview, conversation.id)
     } catch (err) {
       console.error('[Push] Failed to send push notifications:', err)
     }
