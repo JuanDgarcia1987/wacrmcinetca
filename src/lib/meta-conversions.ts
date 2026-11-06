@@ -85,7 +85,6 @@ export async function sendConversionEvent(params: {
     event_name: params.eventName,
     event_time: eventTime,
     action_source: params.actionSource ?? 'chat',
-    event_source_url: META_EVENT_SOURCE_URL,
     user_data: userData,
   }
 
