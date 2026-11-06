@@ -984,9 +984,8 @@ async function processMessage(
       // Membership lives in `profiles` — `profiles.account_id` has been the
       // source of truth since migration 017. There is NO `account_members`
       // table, so the old query returned `{ data: null, error: ... }`, the
-      // `members && members.length > 0` guard fell through, and no push (or
-      // Telegram) notification was ever sent. The error was discarded, which
-      // is why this failed silently.
+      // `members && members.length > 0` guard fell through, and no push was
+      // ever sent. The error was discarded, which is why this failed silently.
       const { data: members, error: membersError } = await supabaseAdmin()
         .from('profiles')
         .select('user_id')
@@ -994,24 +993,10 @@ async function processMessage(
 
       if (membersError) {
         console.error(
-          "[Push] Failed to resolve account members:",
+          '[Push] Failed to resolve account members:',
           membersError.message
         )
         return
-      }
-
-      if (members && members.length > 0) {
-        const userIds = members.map((m: { user_id: string }) => m.user_id)
-        const contactName = identityDisplayName(identity)
-        const preview = contentText || `[${message.type}]`
-
-        await sendPushToUsers(userIds, buildMessagePushPayload({
-          contactName,
-          messagePreview: preview,
-          conversationId: conversation.id,
-          messageId: insertedRows[0]?.id || message.id,
-        }))
-      }
       }
 
       if (!members || members.length === 0) {

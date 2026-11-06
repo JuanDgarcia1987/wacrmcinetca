@@ -42,7 +42,7 @@ export default function DeleteUserData() {
         <h2 className="text-xl font-bold mb-2 mt-6">Tiempo de eliminación</h2>
         <p className="mb-4">
           Una vez recibida tu solicitud, tus datos se eliminarán en un plazo máximo de <strong>30 días naturales</strong>.
-          Recibirás una confirmación por email o Telegram cuando el proceso se complete.
+          Recibirás una confirmación por email cuando el proceso se complete.
         </p>
 
         <h2 className="text-xl font-bold mb-2 mt-6">Datos que no se pueden eliminar</h2>
