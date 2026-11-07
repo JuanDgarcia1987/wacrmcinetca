@@ -1,0 +1,7 @@
+services:
+  landing:
+    build:
+      context: ./landing
+    expose:
+      - "80"
+    restart: unless-stopped

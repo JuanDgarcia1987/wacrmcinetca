@@ -26,13 +26,10 @@ atribución de ese clic.
    - *Nombre*: `landing` (es lo que se verá en el panel, no en internet).
    - *Fuente*: mismo repositorio de GitHub.
    - *Rama*: `main`.
-   - *Build*: **Dockerfile**.
-   - *Ruta del Dockerfile*: `landing/Dockerfile`
-     (si el panel pide contexto de build, `landing`).
-2. **Puerto**: `80`.
-3. **Dominio.** Pestaña *Domains* → añade el dominio del anuncio, por ejemplo
-   `wa.tunegocio.com`, con **HTTPS / Let's Encrypt** activado.
-4. **DNS.** En el proveedor de tu dominio crea un `CNAME`:
+   - *Build*: **Compose**.
+   - *Archivo*: `docker-compose.landing.yml`.
+   - *Puerto*: `80`.
+3. **DNS.** En el proveedor de tu dominio crea un `CNAME`:
 
    | Nombre | Tipo  | Valor |
    |--------|-------|-------|
@@ -40,7 +37,7 @@ atribución de ese clic.
 
    Espera la propagación (de minutos a un par de horas) antes de pedir el
    certificado.
-5. **Deploy.** EasyPanel construye la imagen y sirve la página en la raíz del
+4. **Deploy.** EasyPanel construye la imagen y sirve la página en la raíz del
    dominio.
 
 ### Que se reconstruya solo
