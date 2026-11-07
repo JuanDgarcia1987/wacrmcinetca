@@ -817,17 +817,23 @@ async function processMessage(
   }
 
   // ============================================================
-  // Meta Conversions API — enviar evento al recibir mensaje entrante
+  // Meta Conversions API — Lead: la persona es nueva en el negocio
   // ============================================================
-  // Solo enviamos si tenemos un número de teléfono del remitente.
+  // Se envía UNA sola vez en la vida del contacto, cuando el webhook
+  // acaba de crearlo (`wasCreated`). Antes salía por cada mensaje
+  // entrante: alguien que escribía quince veces generaba quince Leads,
+  // y Meta aprendía a buscar gente charlatana en vez de gente que
+  // convierte. Con la señal limpia, el volumen de Lead refleja personas
+  // reales y se puede comparar contra Contact.
+  //
   // El teléfono se hashea con SHA256 dentro de sendConversionEvent.
-  if (message.from) {
-    // action_source MUST be 'chat' here. 'app' makes Meta validate the
-    // extended device information block (app_data.extinfo, whose first
-    // element is the "extinfo version"), and without it every event is
-    // rejected with subcode 2804043 ("invalid expanded device information
-    // version / OS version"). Inbound WhatsApp messages are chat events,
-    // not app events, so 'chat' is also the semantically correct value.
+  // action_source MUST be 'chat' here. 'app' makes Meta validate the
+  // extended device information block (app_data.extinfo, whose first
+  // element is the "extinfo version"), and without it every event is
+  // rejected with subcode 2804043 ("invalid expanded device information
+  // version / OS version"). Inbound WhatsApp messages are chat events,
+  // not app events, so 'chat' is also the semantically correct value.
+  if (message.from && contactOutcome.wasCreated) {
     void sendConversionEvent({
       eventName: 'Lead',
       phoneNumber: message.from,
@@ -837,16 +843,26 @@ async function processMessage(
       ctwaClid: ctwaClid ?? undefined,
       fbc: attribution?.fbc,
       fbp: attribution?.fbp,
+      // Señales de emparejamiento capturadas por la landing en el clic.
+      clientIpAddress: attribution?.clientIp,
+      clientUserAgent: attribution?.clientUserAgent,
+      externalId: contactRecord.id,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando evento a Meta:', err)
     })
   }
 
-  // Meta Conversions API — Contact: el cliente abrió una conversación.
+  // Meta Conversions API — Contact: la persona inició una conversación.
   // Se dispara una sola vez por hilo (convResult.created), así que no se
-  // repite con cada mensaje. Nota: si el contacto es nuevo, en ese mismo
-  // mensaje también sale el Lead de arriba; para que Contact cuente solo
-  // clientes recurrentes, añade `&& !contactOutcome.wasCreated`.
+  // repite con cada mensaje. Es el evento de optimización: el que está
+  // marcado como conversión personalizada en el conjunto de anuncios.
+  //
+  // Si el contacto es nuevo, en ese mismo mensaje también sale el Lead
+  // de arriba. Son eventos distintos (nombres y event_id distintos), así
+  // que Meta no los deduplica entre sí: Lead = persona nueva, Contact =
+  // conversación iniciada. La campaña optimiza sobre Contact; Lead queda
+  // como señal de embudo para leer el rendimiento.
+  //
   // `eventId` incluye el id de la conversación para que Meta pueda deduplicar.
   if (convResult.created && contactRecord.phone) {
     void sendContactEvent({
@@ -861,6 +877,9 @@ async function processMessage(
       ctwaClid: ctwaClid ?? undefined,
       fbc: attribution?.fbc,
       fbp: attribution?.fbp,
+      clientIpAddress: attribution?.clientIp,
+      clientUserAgent: attribution?.clientUserAgent,
+      externalId: contactRecord.id,
     }).catch((err) => {
       console.error('[meta-conversions] Error enviando Contact a Meta:', err)
     })

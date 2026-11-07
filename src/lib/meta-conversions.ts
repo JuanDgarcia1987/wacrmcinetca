@@ -84,6 +84,14 @@ export async function sendConversionEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  /**
+   * Identificador estable de la persona en nuestro sistema (el id del
+   * contacto en el CRM). Meta lo hashea internamente; aquí se manda ya
+   * hasheado como `user_data.external_id`. Sirve para reconocer a la
+   * misma persona entre eventos y para emparejar cuando el teléfono
+   * solo no basta.
+   */
+  externalId?: string
   /** object_id: required by some Meta event sources; omitted by default. */
   objectId?: string
   /** custom_data: value/currency/contents for e-commerce events. */
@@ -116,6 +124,9 @@ export async function sendConversionEvent(params: {
   if (params.clientIpAddress) userData.client_ip_address = params.clientIpAddress
   if (params.clientUserAgent)
     userData.client_user_agent = params.clientUserAgent
+  // Meta exige external_id como ARRAY de valores hasheados, igual que
+  // `ph`. Mandarlo en claro o como string suelto hace que lo ignore.
+  if (params.externalId) userData.external_id = [sha256(params.externalId)]
 
   const eventData: Record<string, unknown> = {
     event_name: params.eventName,
@@ -221,6 +232,7 @@ export async function sendLeadEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  externalId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Lead',
@@ -233,6 +245,7 @@ export async function sendLeadEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    externalId: params.externalId,
   })
 }
 
@@ -260,6 +273,7 @@ export async function sendContactEvent(params: {
   clientUserId?: string
   clientIpAddress?: string
   clientUserAgent?: string
+  externalId?: string
 }) {
   return sendConversionEvent({
     eventName: 'Contact',
@@ -273,6 +287,7 @@ export async function sendContactEvent(params: {
     clientUserId: params.clientUserId,
     clientIpAddress: params.clientIpAddress,
     clientUserAgent: params.clientUserAgent,
+    externalId: params.externalId,
   })
 }
 

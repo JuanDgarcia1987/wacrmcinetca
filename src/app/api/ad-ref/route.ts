@@ -82,13 +82,30 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as unknown
     const input = normalizeAdRefInput(body)
 
+    // Señales de emparejamiento. La IP y el User-Agent son los del
+    // NAVEGADOR del cliente (esta petición la origina su navegador, no
+    // el servidor de la landing), que es exactamente lo que Meta espera
+    // en user_data para reconocer a la persona y subir el EMQ.
+    //
+    // `unknown` significa que ningún proxy aportó la IP; en ese caso se
+    // guarda NULL en vez de mandarle a Meta una IP inválida.
+    const rawIp = getClientIp(request)
+    const clientIp = rawIp && rawIp !== 'unknown' ? rawIp : null
+    const clientUserAgent = request.headers.get('user-agent')?.slice(0, 512) ?? null
+
     const token = generateAdRefToken()
     const { error } = await supabaseAdmin().from('ad_refs').insert({
       token,
       fbclid: input.fbclid,
       fbp: input.fbp,
       utm_source: input.utmSource,
+      utm_medium: input.utmMedium,
       utm_campaign: input.utmCampaign,
+      utm_content: input.utmContent,
+      utm_term: input.utmTerm,
+      landing_url: input.landingUrl,
+      client_ip: clientIp,
+      client_user_agent: clientUserAgent,
     })
 
     if (error) {

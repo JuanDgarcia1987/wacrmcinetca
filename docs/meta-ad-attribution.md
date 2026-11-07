@@ -38,6 +38,42 @@ Meta atribuye la conversación al clic exacto
 `fbc` es el mismo identificador que usaría un píxel de navegador:
 `fb.1.<timestamp_ms>.<fbclid>`.
 
+## Qué manda el CRM a Meta, y cuándo
+
+Dos eventos, con propósitos distintos. No se pisan porque tienen nombre
+y `event_id` distintos.
+
+| Evento | Cuándo se envía | Para qué |
+|---|---|---|
+| `Lead` | **Una vez en la vida del contacto**, cuando el webhook lo crea | Señal de embudo: personas nuevas que llegaron |
+| `Contact` | **Una vez por conversación**, en su primer mensaje | El evento de optimización de la campaña |
+
+En el primer mensaje de alguien nuevo salen los dos. Eso es correcto:
+`Lead` dice "persona nueva", `Contact` dice "conversación iniciada".
+
+> Antes `Lead` salía por **cada mensaje entrante**. Alguien que escribía
+> quince veces generaba quince Leads y Meta optimizaba hacia gente
+> charlatana. Corregido: un `Lead` por persona.
+
+### Datos de emparejamiento de cada evento
+
+Todo dentro de `user_data`. Cuantos más campos coincidan, más alto el
+Event Match Quality (EMQ) y mejor optimiza Meta.
+
+| Campo | De dónde sale | Cuándo está |
+|---|---|---|
+| `ph` | teléfono del remitente, SHA-256 sin `+` | siempre |
+| `external_id` | id del contacto en el CRM, SHA-256 | siempre |
+| `fbc` | `fbclid` guardado en `ad_refs` | anuncio con landing |
+| `fbp` | cookie `_fbp` capturada por la landing | anuncio con landing |
+| `client_ip_address` | IP del navegador en el clic | anuncio con landing |
+| `client_user_agent` | User-Agent del navegador en el clic | anuncio con landing |
+| `ctwa_clid` | `message.referral.ctwa_clid` | anuncio directo a WhatsApp |
+
+Los tres últimos sólo existen si el cliente pasó por la landing, porque
+el CRM no tiene forma de conocerlos — es el navegador quien los aporta
+en `POST /api/ad-ref`.
+
 ## Cómo activarlo
 
 ### 1. Aplicar la migración

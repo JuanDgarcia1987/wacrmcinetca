@@ -84,6 +84,14 @@ export interface AdRefAttribution {
   fbc?: string
   /** Cookie `_fbp` original, si se capturó. */
   fbp?: string
+  /**
+   * IP del cliente tal como la vio la landing. Meta la usa para
+   * reconocer a la persona (`user_data.client_ip_address`) y sube el
+   * Event Match Quality. Es la IP del navegador, no la del servidor.
+   */
+  clientIp?: string
+  /** User-Agent del navegador del cliente (`user_data.client_user_agent`). */
+  clientUserAgent?: string
   clickedAtMs: number
 }
 
@@ -91,6 +99,8 @@ interface AdRefRow {
   token: string
   fbclid: string | null
   fbp: string | null
+  client_ip: string | null
+  client_user_agent: string | null
   created_at: string
   expires_at: string
 }
@@ -109,7 +119,7 @@ export async function consumeAdRef(
 ): Promise<AdRefAttribution | null> {
   const { data, error } = await db
     .from('ad_refs')
-    .select('token, fbclid, fbp, created_at, expires_at')
+    .select('token, fbclid, fbp, client_ip, client_user_agent, created_at, expires_at')
     .eq('token', token)
     .maybeSingle()
 
@@ -128,6 +138,8 @@ export async function consumeAdRef(
   const attribution: AdRefAttribution = { token, clickedAtMs }
   if (row.fbclid) attribution.fbc = buildFbc(row.fbclid, clickedAtMs)
   if (row.fbp) attribution.fbp = row.fbp
+  if (row.client_ip) attribution.clientIp = row.client_ip
+  if (row.client_user_agent) attribution.clientUserAgent = row.client_user_agent
 
   // Best-effort: el sello es sólo auditoría, un fallo aquí no debe
   // impedir que el evento salga.
@@ -149,7 +161,11 @@ export interface AdRefInput {
   fbclid?: string | null
   fbp?: string | null
   utmSource?: string | null
+  utmMedium?: string | null
   utmCampaign?: string | null
+  utmContent?: string | null
+  utmTerm?: string | null
+  landingUrl?: string | null
 }
 
 /** Valida y normaliza lo que llega del cliente. */
@@ -164,6 +180,10 @@ export function normalizeAdRefInput(raw: unknown): AdRefInput {
     fbclid: str(input.fbclid, 512),
     fbp: str(input.fbp, 256),
     utmSource: str(input.utmSource, 128),
+    utmMedium: str(input.utmMedium, 128),
     utmCampaign: str(input.utmCampaign, 128),
+    utmContent: str(input.utmContent, 128),
+    utmTerm: str(input.utmTerm, 128),
+    landingUrl: str(input.landingUrl, 1024),
   }
 }

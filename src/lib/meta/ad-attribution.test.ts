@@ -88,8 +88,25 @@ describe('normalizeAdRefInput', () => {
       fbclid: null,
       fbp: null,
       utmSource: null,
+      utmMedium: null,
       utmCampaign: null,
+      utmContent: null,
+      utmTerm: null,
+      landingUrl: null,
     })
+  })
+
+  it('keeps every utm parameter and the landing URL', () => {
+    const out = normalizeAdRefInput({
+      utmMedium: 'cpc',
+      utmContent: 'video-a',
+      utmTerm: 'zapatos',
+      landingUrl: 'https://wa.tunegocio.com/?fbclid=abc',
+    })
+    expect(out.utmMedium).toBe('cpc')
+    expect(out.utmContent).toBe('video-a')
+    expect(out.utmTerm).toBe('zapatos')
+    expect(out.landingUrl).toBe('https://wa.tunegocio.com/?fbclid=abc')
   })
 })
 
@@ -129,6 +146,26 @@ describe('consumeAdRef', () => {
       fbp: 'fb.1.1.abc',
       clickedAtMs: createdAt.getTime(),
     })
+  })
+
+  it('carries the browser IP and User-Agent captured by the landing', async () => {
+    const createdAt = new Date('2026-01-01T00:00:00.000Z')
+    const { db } = fakeDb({
+      token: 'R7K2X9PQ',
+      fbclid: 'IwAR123',
+      fbp: null,
+      client_ip: '190.12.34.56',
+      client_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)',
+      created_at: createdAt.toISOString(),
+      expires_at: new Date('2026-01-08T00:00:00.000Z').toISOString(),
+    })
+
+    const out = await consumeAdRef(db, 'R7K2X9PQ', new Date('2026-01-02T00:00:00.000Z'))
+
+    // Meta las usa como client_ip_address / client_user_agent: son las del
+    // navegador del cliente, no las del servidor que sirvió la landing.
+    expect(out?.clientIp).toBe('190.12.34.56')
+    expect(out?.clientUserAgent).toBe('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)')
   })
 
   it('ignores expired tokens', async () => {
