@@ -57,7 +57,23 @@ WHATSAPP_BUSINESS_NUMBER=584121234567
 
 Sólo dígitos, formato internacional, sin `+`.
 
-### 3. Apuntar el anuncio a la landing
+### 3a. Anuncio que debe caer directo en WhatsApp → usa `/ir`
+
+Si el anuncio tiene que abrir el chat sin mostrar ninguna página, la URL
+de destino es:
+
+```
+https://tu-dominio.com/ir
+```
+
+`/ir` no pinta nada: guarda el `fbclid`, crea el token y responde con un
+302 a `wa.me/...?text=...Ref: XXXXXXXX`. Para el visitante es instantáneo.
+
+Es la opción correcta cuando la campaña usa **ubicación de conversión
+"Sitio web"** (para poder optimizar por un evento propio, como `Contact`)
+pero el resultado buscado es un chat, no una visita.
+
+### 3b. Anuncio con landing visible → usa `/contacto`
 
 En el anuncio de Meta, la URL de destino:
 

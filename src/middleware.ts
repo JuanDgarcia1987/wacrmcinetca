@@ -92,6 +92,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // `/ir` y `/api/ad-ref` quedan fuera: son destinos de clic de
+    // anuncio y no deben pagar el getUser() de Supabase (ni su
+    // latencia) antes de redirigir a WhatsApp.
+    '/((?!_next/static|_next/image|favicon.ico|ir(?:/|$)|api/ad-ref|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
