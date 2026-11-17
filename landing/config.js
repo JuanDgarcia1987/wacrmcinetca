@@ -20,7 +20,7 @@ window.LANDING_CONFIG = {
   headline: 'Compra en Shein, Temu o AliExpress<br>y paga con <em>Cashea</em>',
 
   subheadline:
-    'Elige tus productos y nosotros los compramos por ti. Te llegan a la puerta de tu casa en Carora, en unos 20 días hábiles.',
+    'Elige tus productos y nosotros los compramos por ti. Te llegan a la puerta de tu casa en Carora, en 20 días hábiles.',
 
   buttonText: 'Escríbenos por WhatsApp',
 
