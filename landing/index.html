@@ -119,16 +119,18 @@
   .cta {
     display: inline-flex; align-items: center; justify-content: center; gap: 11px;
     width: 100%; padding: 17px 22px;
-    background: var(--accent); color: #06331c;
+    background: var(--accent); color: #ffffff;
     font-size: 18px; font-weight: 800; text-decoration: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .22);
     border-radius: 16px;
+    border: 2px solid rgba(255, 255, 255, .85);
     transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
     box-shadow: 0 10px 26px rgba(37, 211, 102, .34), 0 2px 0 rgba(0, 0, 0, .12) inset;
     margin-top: 2px;
   }
   .cta:hover { background: #1fbe5b; }
   .cta:active { transform: scale(.985); }
-  .cta svg { width: 22px; height: 22px; fill: currentColor; flex: none; }
+  .cta svg { width: 22px; height: 22px; fill: #ffffff; flex: none; }
 
   .bullets {
     list-style: none; padding: 0; margin: 0;
