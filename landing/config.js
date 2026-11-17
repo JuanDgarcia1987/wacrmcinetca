@@ -24,12 +24,6 @@ window.LANDING_CONFIG = {
 
   buttonText: 'Escríbenos por WhatsApp',
 
-  bullets: [
-    'Respuesta inmediata',
-    'Pagas en bolívares o USDT',
-    'Financias con Cashea',
-  ],
-
   // Número del negocio (sólo dígitos, formato internacional).
   // Se usa SOLO si la API del CRM no responde.
   whatsappNumber: '584126724977',

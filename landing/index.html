@@ -74,7 +74,7 @@
     /* La foto ocupa el ancho completo, así que su alto es siempre
        100vw * 1,241. El contenido arranca cuando la foto ya terminó,
        para que el titular nunca se monte sobre el logo de Cashea. */
-    padding: max(calc(100vw * 1.241 - 74px), 46vh) 18px calc(18px + var(--safe-b));
+    padding: max(calc(100vw * 1.241 - 40px), 48vh) 18px calc(22px + var(--safe-b));
   }
 
   .brand {
@@ -98,8 +98,8 @@
   .bottom {
     margin-top: auto;
     display: grid;
-    gap: 12px;
-    padding-top: 16px;
+    gap: 16px;
+    padding-top: 18px;
     background: linear-gradient(180deg, rgba(8, 22, 48, 0) 0%, var(--bg) 16%, var(--bg) 100%);
   }
 
@@ -188,29 +188,6 @@
     .cta, .cta svg, .cta::after { animation: none !important; }
   }
 
-  .bullets {
-    list-style: none; padding: 0; margin: 0;
-    display: flex; flex-wrap: wrap; gap: 8px;
-  }
-  .bullets li {
-    font-size: 12px; font-weight: 600;
-    letter-spacing: .01em;
-    color: rgba(255, 255, 255, .95);
-    padding: 6px 12px 6px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .11);
-    border: 1px solid rgba(255, 255, 255, .16);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .bullets li::before {
-    content: "";
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 0 2px rgba(37, 211, 102, .22);
-    flex: none;
-  }
   .status { min-height: 15px; margin: 0; font-size: 12px; color: rgba(255, 255, 255, .60); text-align: center; }
 
   /* En pantallas altas y de escritorio, el contenido no se estira
@@ -238,7 +215,6 @@
       <span id="cta-label"></span>
     </a>
 
-    <ul id="bullets" class="bullets"></ul>
     <p id="status" class="status" aria-live="polite"></p>
   </div>
 </main>
@@ -259,13 +235,6 @@
   document.getElementById('headline').innerHTML = C.headline || 'Escríbenos por WhatsApp';
   document.getElementById('subheadline').textContent = C.subheadline || '';
   document.getElementById('cta-label').textContent = C.buttonText || 'Abrir WhatsApp';
-
-  var list = document.getElementById('bullets');
-  (C.bullets || []).forEach(function (text) {
-    var li = document.createElement('li');
-    li.textContent = text;
-    list.appendChild(li);
-  });
 
   var cta = document.getElementById('cta');
   var status = document.getElementById('status');
