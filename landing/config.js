@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------
 // Configuración de la landing. Es el ÚNICO archivo que necesitas tocar
 // para cambiar textos, colores, la imagen de fondo o el número de WhatsApp.
-// Después de editarlo: commit + push, y EasyPanel reconstruye solo.
+// Después de editarlo: commit + push, y se despliega.
 // ------------------------------------------------------------------
 window.LANDING_CONFIG = {
   // Marca
@@ -15,10 +15,15 @@ window.LANDING_CONFIG = {
   backgroundImage: './fondo.jpg',
 
   // Textos
-  headline: 'Compra en Shein, Temu o AliExpress y paga con Cashea',
+  // En el titular puedes resaltar una palabra en dorado con <em>...</em>.
+  // Esa palabra es la que guía la lectura: aquí es el beneficio (Cashea).
+  headline: 'Compra en Shein, Temu o AliExpress<br>y paga con <em>Cashea</em>',
+
   subheadline:
-    'Tú eliges los productos y nosotros los compramos y te los llevamos a la puerta de tu casa en Carora, en unos 20 días hábiles.',
+    'Elige tus productos y nosotros los compramos por ti. Te llegan a la puerta de tu casa en Carora, en unos 20 días hábiles.',
+
   buttonText: 'Escríbenos por WhatsApp',
+
   bullets: [
     'Respuesta inmediata',
     'Pagas en bolívares o USDT',
