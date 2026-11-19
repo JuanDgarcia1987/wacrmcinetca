@@ -291,7 +291,7 @@ function ToolbarButton({
       disabled={busy}
       aria-label={label}
       title={label}
-      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+      className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60 touch-manipulation"
     >
       {busy ? (
         <Loader2 className="h-4 w-4 animate-spin" />
