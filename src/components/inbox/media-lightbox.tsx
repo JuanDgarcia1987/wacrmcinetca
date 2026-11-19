@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { useMediaBlobUrl } from "@/hooks/use-media-blob-url";
 import { downloadMediaMessage } from "@/lib/media/download";
+import { mediaFilename } from "@/lib/media/filename";
 import { galleryIndexOf, type MediaGalleryItem } from "@/lib/media/gallery";
 
 /**
