@@ -4,8 +4,12 @@ import { splitTextWithUrls } from "@/lib/inbox/linkify";
 import { cn } from "@/lib/utils";
 
 interface LinkTextProps {
-  /** Texto del mensaje, tal cual llega de WhatsApp (puede traer URLs). */
-  text: string;
+  /**
+   * Texto del mensaje, tal cual llega de WhatsApp (puede traer URLs).
+   * Acepta null/undefined porque `content_text` viene opcional en la base
+   * (mensajes multimedia sin pie, plantillas sin cuerpo...).
+   */
+  text: string | null | undefined;
   className?: string;
   /** Clases extra para los enlaces (contraste según el fondo de la burbuja). */
   linkClassName?: string;
@@ -22,7 +26,7 @@ interface LinkTextProps {
  * noopener, la página destino puede controlar la ventana que la abrió.
  */
 export function LinkText({ text, className, linkClassName }: LinkTextProps) {
-  const parts = splitTextWithUrls(text);
+  const parts = splitTextWithUrls(text ?? "");
 
   return (
     <p className={cn("whitespace-pre-wrap break-words text-sm", className)}>
