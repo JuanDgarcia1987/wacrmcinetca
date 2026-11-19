@@ -639,7 +639,7 @@ export function MessageComposer({
           <Button
             size="sm"
             onClick={stopRecording}
-            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
             title={t("stopAndAttach")}
           >
             <Square className="h-4 w-4" />
