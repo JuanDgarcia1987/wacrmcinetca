@@ -467,6 +467,7 @@
       "openOriginal": "Open original",
       "download": "Download",
       "downloadFailed": "Couldn't download the attachment",
+      "downloadMobileHint": "Tap and hold the image to save it",
       "failed": "This attachment is no longer available",
       "imageAlt": "Shared image",
       "you": "You"

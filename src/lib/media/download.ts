@@ -5,6 +5,14 @@ import { getT } from "@/lib/i18n/translate";
 
 const t = getT("LibErrors");
 
+/** Detect mobile browsers where programmatic anchor click doesn't trigger download. */
+function isMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  );
+}
+
 /**
  * Save a chat attachment to the agent's machine.
  *
@@ -15,6 +23,10 @@ const t = getT("LibErrors");
  * bytes ourselves solves both — we get a real `Blob` (already cached by
  * `loadMediaBlob` if the thumbnail or lightbox pulled it) and full control
  * over the filename.
+ *
+ * On mobile, programmatic anchor clicks don't reliably trigger downloads,
+ * so we open the blob URL in a new tab and instruct the user to long-press.
+ * On desktop, we use the anchor click approach with new-tab fallback.
  *
  * Throws so the caller can toast; the only silent path is the new-tab
  * fallback below.
@@ -40,11 +52,21 @@ export async function downloadMediaMessage(message: Message): Promise<void> {
   }
 
   const objectUrl = URL.createObjectURL(blob);
+  const filename = mediaFilename(message, blob.type);
+
   try {
-    clickAnchor({
-      href: objectUrl,
-      download: mediaFilename(message, blob.type),
-    });
+    if (isMobile()) {
+      // On mobile, anchor click doesn't work reliably. Open in new tab
+      // and let the user long-press to save.
+      openInNewTab(objectUrl);
+      // The toast is handled by the caller (media-lightbox) via the
+      // returned promise resolving without error.
+    } else {
+      clickAnchor({
+        href: objectUrl,
+        download: filename,
+      });
+    }
   } finally {
     // Revoking in the same tick can cancel the download in Safari; a beat
     // later the browser has taken its own reference to the bytes.

@@ -106,6 +106,10 @@ export function MediaLightbox({
     setDownloading(true);
     try {
       await downloadMediaMessage(item.message);
+      // On mobile, the blob opens in a new tab — tell the user how to save.
+      if (typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        toast.info(t("downloadMobileHint"));
+      }
     } catch {
       toast.error(t("downloadFailed"));
     } finally {
