@@ -662,7 +662,7 @@ export function MessageComposer({
                     ? undefined
                     : t("attachMedia")
               }
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-0 bg-gray-100 hover:bg-gray-200 shadow-sm text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -702,7 +702,7 @@ export function MessageComposer({
                     ? undefined
                     : t("moreActions")
               }
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-0 bg-gray-100 hover:bg-gray-200 shadow-sm text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
             >
               <Plus className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -724,7 +724,7 @@ export function MessageComposer({
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
             title={readOnly ? undefined : t("sendTemplate")}
-            className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-foreground touch-manipulation"
+            className="h-11 w-11 shrink-0 p-0 bg-gray-100 hover:bg-gray-200 shadow-sm text-muted-foreground hover:text-foreground touch-manipulation"
             onClick={onOpenTemplates}
           >
             <LayoutTemplate className="h-4 w-4" />
@@ -737,7 +737,7 @@ export function MessageComposer({
             gateReason={tGate("reasons.sendMessages")}
             disabled={drafting}
             title={readOnly ? undefined : t("draftWithAI")}
-            className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-primary touch-manipulation"
+            className="h-11 w-11 shrink-0 p-0 bg-gray-100 hover:bg-gray-200 shadow-sm text-muted-foreground hover:text-primary touch-manipulation"
             onClick={handleDraft}
           >
             {drafting ? (
