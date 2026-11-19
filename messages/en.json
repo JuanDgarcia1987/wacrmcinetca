@@ -475,6 +475,8 @@
       "reply": "Reply",
       "copyText": "Copy text",
       "delete": "Delete",
+      "deleteForEveryone": "Delete for everyone",
+      "deleteForEveryoneFailed": "Delete for everyone failed: {reason}",
       "react": "React",
       "reactWith": "React with {emoji}",
       "nothingToCopy": "Nothing to copy",
@@ -2758,7 +2760,13 @@
       "unknownError": "Unknown error",
       "invalidRequestBody": "Invalid request body",
       "titleEmpty": "title cannot be empty",
-      "insertFailed": "insert failed"
+      "insertFailed": "insert failed",
+      "messageNotFound": "Message not found"
+    },
+    "messageDelete": {
+      "inboundNotAllowed": "Only sent messages can be deleted for everyone",
+      "noMetaId": "This message has no Meta message ID and cannot be deleted for everyone",
+      "deletedLabel": "This message was deleted"
     },
     "account": {
       "apiKeys": {

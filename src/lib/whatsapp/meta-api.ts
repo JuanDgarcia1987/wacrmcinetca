@@ -1196,6 +1196,37 @@ function validateInteractiveHeaderFooter(
 }
 
 // ============================================================
+// Delete message
+// ============================================================
+
+export interface DeleteMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  /** Meta's message_id (wamid) of the message to delete. */
+  messageId: string
+}
+
+/**
+ * Delete a sent message for everyone via the WhatsApp Cloud API.
+ * Only works for outbound messages sent by the business within
+ * Meta's time window (~24-48 hours). Meta returns an error if the
+ * message is too old or not deletable.
+ */
+export async function deleteMessage(
+  args: DeleteMessageArgs
+): Promise<void> {
+  const { phoneNumberId, accessToken, messageId } = args
+  const url = `${META_API_BASE}/${phoneNumberId}/messages/${messageId}`
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+}
+
+// ============================================================
 // Media
 // ============================================================
 

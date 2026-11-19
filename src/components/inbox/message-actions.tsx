@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CornerUpLeft, Copy, SmilePlus } from "lucide-react";
+import { CornerUpLeft, Copy, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -76,6 +76,28 @@ export function MessageActions({
     setTouchOpen(false);
   };
 
+  const handleDeleteForEveryone = async () => {
+    if (message.id.startsWith("temp-")) {
+      toast.error(t("waitForSending"));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/whatsapp/messages/${message.id}/delete`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const reason = data?.error || `HTTP ${res.status}`;
+        throw new Error(reason);
+      }
+      toast.success(t("deleteForEveryone"));
+      setTouchOpen(false);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : t("networkError");
+      toast.error(t("deleteForEveryoneFailed", { reason }));
+    }
+  };
+
   // Row alignment lives here (not in MessageBubble) so the `group/actions`
   // hover region matches the bubble's content width — hovering empty space
   // in the row no longer reveals the toolbar.
@@ -144,6 +166,16 @@ export function MessageActions({
         >
           <Copy className="h-3.5 w-3.5" />
         </button>
+        {isAgent && message.message_id && (
+          <button
+            type="button"
+            onClick={handleDeleteForEveryone}
+            className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground text-red-400 hover:text-red-300"
+            aria-label={t("deleteForEveryone")}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       </div>
     </div>

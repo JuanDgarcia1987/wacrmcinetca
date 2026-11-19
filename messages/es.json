@@ -475,6 +475,8 @@
       "reply": "Responder",
       "copyText": "Copiar texto",
       "delete": "Eliminar",
+      "deleteForEveryone": "Borrar para todos",
+      "deleteForEveryoneFailed": "No se pudo borrar para todos: {reason}",
       "react": "Reaccionar",
       "reactWith": "Reaccionar con {emoji}",
       "nothingToCopy": "Nada que copiar",
@@ -2758,7 +2760,13 @@
       "unknownError": "Error desconocido",
       "invalidRequestBody": "Cuerpo de la solicitud no válido",
       "titleEmpty": "El título no puede estar vacío",
-      "insertFailed": "error al insertar"
+      "insertFailed": "error al insertar",
+      "messageNotFound": "Mensaje no encontrado"
+    },
+    "messageDelete": {
+      "inboundNotAllowed": "Solo los mensajes enviados se pueden borrar para todos",
+      "noMetaId": "Este mensaje no tiene ID de Meta y no se puede borrar para todos",
+      "deletedLabel": "Este mensaje fue borrado"
     },
     "account": {
       "apiKeys": {
