@@ -105,11 +105,18 @@ export function MediaLightbox({
     if (!item || downloading) return;
     setDownloading(true);
     try {
-      await downloadMediaMessage(item.message);
-      // On mobile, the blob opens in a new tab — tell the user how to save.
-      if (typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        toast.info(t("downloadMobileHint"));
-      }
+      const response = await fetch(item.url);
+      if (!response.ok) throw new Error(t("downloadFailed"));
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = mediaFilename(item.message, blob.type) || "imagen";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+      toast.success(t("downloadComplete"));
     } catch {
       toast.error(t("downloadFailed"));
     } finally {
