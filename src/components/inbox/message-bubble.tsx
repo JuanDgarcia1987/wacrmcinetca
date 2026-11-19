@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { format } from "date-fns";
+import { LinkText } from "./link-text";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import {
@@ -182,9 +183,14 @@ function MessageContent({
   switch (message.content_type) {
     case "text":
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text}
-        </p>
+        <LinkText
+          text={message.content_text}
+          linkClassName={
+            isAgent
+              ? "text-primary-foreground decoration-primary-foreground/60"
+              : "text-primary decoration-primary/60"
+          }
+        />
       );
 
     case "image":
@@ -196,9 +202,15 @@ function MessageContent({
             <MediaUnavailable label={t("photo")} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              {message.content_text}
-            </p>
+            <LinkText
+              text={message.content_text}
+              className="mt-1"
+              linkClassName={
+                isAgent
+                  ? "text-primary-foreground decoration-primary-foreground/60"
+                  : "text-primary decoration-primary/60"
+              }
+            />
           )}
         </div>
       );
@@ -212,9 +224,15 @@ function MessageContent({
             <MediaUnavailable label={t("video")} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              {message.content_text}
-            </p>
+            <LinkText
+              text={message.content_text}
+              className="mt-1"
+              linkClassName={
+                isAgent
+                  ? "text-primary-foreground decoration-primary-foreground/60"
+                  : "text-primary decoration-primary/60"
+              }
+            />
           )}
         </div>
       );
@@ -262,9 +280,15 @@ function MessageContent({
             <TemplateHeader header={view.header} message={message} t={t} />
           )}
           {message.content_text ? (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              {message.content_text}
-            </p>
+            <LinkText
+              text={message.content_text}
+              className="mt-1"
+              linkClassName={
+                isAgent
+                  ? "text-primary-foreground decoration-primary-foreground/60"
+                  : "text-primary decoration-primary/60"
+              }
+            />
           ) : (
             message.template_name && (
               <p className="mt-1 break-words text-sm italic opacity-80">
@@ -340,24 +364,35 @@ function MessageContent({
               <CornerDownLeft className="h-3 w-3" />
               {t("buttonReply")}
             </span>
-            <p className="whitespace-pre-wrap break-words text-sm">
-              {message.content_text || t("interactiveReply")}
-            </p>
+            <LinkText
+              text={message.content_text || t("interactiveReply")}
+              linkClassName="text-primary decoration-primary/60"
+            />
           </div>
         );
       }
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text || t("interactiveReply")}
-        </p>
+        <LinkText
+          text={message.content_text || t("interactiveReply")}
+          linkClassName={
+            isAgent
+              ? "text-primary-foreground decoration-primary-foreground/60"
+              : "text-primary decoration-primary/60"
+          }
+        />
       );
     }
 
     default:
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text || t("unsupported")}
-        </p>
+        <LinkText
+          text={message.content_text || t("unsupported")}
+          linkClassName={
+            isAgent
+              ? "text-primary-foreground decoration-primary-foreground/60"
+              : "text-primary decoration-primary/60"
+          }
+        />
       );
   }
 }
