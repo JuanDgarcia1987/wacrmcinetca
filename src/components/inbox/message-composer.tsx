@@ -194,6 +194,7 @@ export function MessageComposer({
   // Voice recording state. The recorder encodes Ogg/Opus in-browser
   // (opus-recorder) so there's no server-side transcode.
   const [recording, setRecording] = useState(false);
+  const [holdRecording, setHoldRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const recorderRef = useRef<import("opus-recorder").default | null>(null);
   const cancelledRef = useRef(false);
@@ -512,6 +513,30 @@ export function MessageComposer({
     void recorderRef.current?.stop().catch(() => {});
   }, [clearTimer]);
 
+  // Hold-to-record handlers (WhatsApp-style: press and hold to record).
+  const startHoldRecording = useCallback(() => {
+    if (inputsDisabled || busy || drafting || recording) return;
+    setHoldRecording(true);
+    void startRecording();
+  }, [inputsDisabled, busy, drafting, recording, startRecording]);
+
+  const stopHoldRecording = useCallback(() => {
+    if (!holdRecording) return;
+    setHoldRecording(false);
+    // Only stop if we were actually recording (not cancelled by drag-out)
+    if (recording) {
+      stopRecording();
+    }
+  }, [holdRecording, recording, stopRecording]);
+
+  const cancelHoldRecording = useCallback(() => {
+    if (!holdRecording) return;
+    setHoldRecording(false);
+    if (recording) {
+      cancelRecording();
+    }
+  }, [holdRecording, recording, cancelRecording]);
+
   // Auto-stop at the cap so a forgotten recording can't blow the
   // upload size limit.
   useEffect(() => {
@@ -650,7 +675,7 @@ export function MessageComposer({
           {/* Action buttons. On mobile this group wraps to its own row
               below the textarea (basis-full + order-2) so the input gets
               the full width; on sm+ it sits inline before the textarea. */}
-          <div className="order-2 flex basis-full items-end gap-2 sm:order-1 sm:basis-auto">
+          <div className="order-2 flex basis-full items-end justify-between gap-2 sm:order-1 sm:basis-auto">
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -682,10 +707,6 @@ export function MessageComposer({
               <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
                 <FileText className="mr-2 h-4 w-4" />
                 {t("document")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                {t("voiceNote")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -746,6 +767,33 @@ export function MessageComposer({
               <Sparkles className="h-4 w-4" />
             )}
           </GatedButton>
+
+          {/* Hold-to-record voice note button (WhatsApp-style). */}
+          <button
+            type="button"
+            disabled={inputsDisabled || busy || drafting}
+            className={cn(
+              "h-11 w-11 shrink-0 p-0 rounded-md bg-gray-100 shadow-sm text-muted-foreground touch-manipulation transition-colors",
+              "hover:bg-gray-200 hover:text-foreground",
+              "active:bg-primary/10 active:text-primary",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              recording && "bg-primary/10 text-primary"
+            )}
+            onMouseDown={startHoldRecording}
+            onMouseUp={stopHoldRecording}
+            onMouseLeave={cancelHoldRecording}
+            onTouchStart={startHoldRecording}
+            onTouchEnd={stopHoldRecording}
+            onTouchCancel={cancelHoldRecording}
+            title={inputsDisabled ? undefined : t("voiceNote")}
+            aria-label={t("voiceNote")}
+          >
+            {recording && holdRecording ? (
+              <Mic className="h-5 w-5 animate-pulse text-red-500" />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
+          </button>
           </div>
 
           <textarea
@@ -783,15 +831,6 @@ export function MessageComposer({
             <Send className="h-4 w-4" />
           </GatedButton>
         </div>
-      )}
-
-      {/* Hint sits outside the flex row so its height doesn't push
-          `items-end` buttons below the textarea. Indented to line up
-          under the textarea left edge. */}
-      {!draft && !recording && (
-        <p className="mt-1 pl-1 text-[10px] text-muted-foreground sm:pl-[5.5rem]">
-          {t("draftHint")}
-        </p>
       )}
 
       {/* Interactive-message builder dialog. */}
