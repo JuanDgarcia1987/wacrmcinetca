@@ -417,6 +417,7 @@
       "recordingTooLong": "녹음이 너무 깁니다 (16MB 초과).",
       "recordingUnsupported": "이 브라우저에서는 음성 녹음을 지원하지 않습니다.",
       "microphoneDenied": "마이크 접근이 거부되었거나 사용할 수 없습니다.",
+      "microphoneNotFound": "마이크가 감지되지 않았습니다. 마이크를 연결하거나 마이크가 있는 기기를 사용하세요.",
       "draftWithAI": "AI로 답장 초안 작성",
       "addCaption": "캡션 추가…",
       "removeAttachment": "첨부 파일 제거",

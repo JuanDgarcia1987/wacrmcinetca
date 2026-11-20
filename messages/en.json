@@ -417,6 +417,7 @@
       "recordingTooLong": "Recording is too long (over 16 MB).",
       "recordingUnsupported": "Voice recording isn't supported in this browser.",
       "microphoneDenied": "Microphone access denied or unavailable.",
+      "microphoneNotFound": "No microphone detected. Connect one or use a device with a microphone.",
       "draftWithAI": "Draft a reply with AI",
       "addCaption": "Add a caption…",
       "removeAttachment": "Remove attachment",

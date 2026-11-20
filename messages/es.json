@@ -417,6 +417,7 @@
       "recordingTooLong": "La grabación es demasiado larga (más de 16 MB).",
       "recordingUnsupported": "Este navegador no admite la grabación de voz.",
       "microphoneDenied": "Acceso al micrófono denegado o no disponible.",
+      "microphoneNotFound": "No se detecta micrófono. Conecta uno o usa un dispositivo con micrófono.",
       "draftWithAI": "Redactar una respuesta con IA",
       "addCaption": "Agregar una descripción…",
       "removeAttachment": "Quitar adjunto",

@@ -498,10 +498,19 @@ export function MessageComposer({
       setRecording(true);
       setRecordSeconds(0);
       timerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
-    } catch {
+    } catch (err) {
       void recorderRef.current?.stop().catch(() => {});
       recorderRef.current = null;
-      toast.error(t("microphoneDenied"));
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Permission") || msg.includes("Denied") || msg.includes("denied")) {
+        toast.error(t("microphoneDenied"));
+      } else if (msg.includes("NotFound") || msg.includes("not found") || msg.includes("no microphone")) {
+        toast.error(t("microphoneNotFound"));
+      } else if (msg.includes("worker") || msg.includes("encoderWorker") || msg.includes("404")) {
+        toast.error("No se pudo cargar el codificador de audio. Recarga la página.");
+      } else {
+        toast.error(`Error de micrófono: ${msg}`);
+      }
     }
   }, [inputsDisabled, busy, recording, finalizeRecording, t]);
 
