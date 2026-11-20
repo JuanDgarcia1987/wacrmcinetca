@@ -473,6 +473,11 @@ export function MessageComposer({
       return;
     }
     try {
+      // Pide permiso de micrófono explícitamente antes de crear el recorder.
+      // Esto fuerza al navegador a mostrar la ventana de permiso si aún no se ha concedido.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop()); // liberamos inmediatamente; el recorder lo pide de nuevo
+
       // Lazy-load the encoder (≈400 KB worker) only when the user records,
       // keeping it out of the main bundle.
       const { default: Recorder } = await import("opus-recorder");
